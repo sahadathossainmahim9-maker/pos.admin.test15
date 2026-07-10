@@ -1,0 +1,1727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monzu Plumbing Works — POS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --navy:#0F2D33;
+  --navy-light:#17434B;
+  --teal:#1C6E75;
+  --copper:#BE6A34;
+  --copper-light:#E08E52;
+  --bg:#F4F6F5;
+  --card:#FFFFFF;
+  --line:#DDE4E3;
+  --text:#16241F;
+  --muted:#5C6F6A;
+  --danger:#B23A3A;
+  --good:#2E7D5B;
+  --warn:#B5860B;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
+h1,h2,h3,h4{font-family:'Segoe UI',Arial,sans-serif;margin:0 0 8px 0;color:var(--navy);}
+button{cursor:pointer;font-family:inherit;}
+input,select,textarea{font-family:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);font-size:14px;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--teal);outline-offset:1px;}
+table{width:100%;border-collapse:collapse;font-size:14px;}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;}
+th{background:var(--bg);color:var(--navy);font-weight:600;position:sticky;top:0;}
+tr:hover td{background:#FAFCFB;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;font-weight:600;font-size:13px;color:#fff;background:var(--teal);transition:filter .15s;}
+.btn:hover{filter:brightness(1.08);}
+.btn.copper{background:var(--copper);}
+.btn.danger{background:var(--danger);}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--navy);}
+.btn.small{padding:5px 10px;font-size:12px;}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.3px;}
+.pill.paid{background:#DEF3E7;color:var(--good);}
+.pill.due{background:#FCE7E7;color:var(--danger);}
+.pill.partial{background:#FFF3DE;color:var(--warn);}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,45,51,.04);}
+.grid{display:grid;gap:14px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600;}
+.field{margin-bottom:10px;}
+.field input,.field select,.field textarea{width:100%;}
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 55%,var(--teal) 100%);display:flex;align-items:center;justify-content:center;z-index:999;}
+.loginBox{background:#fff;border-radius:14px;padding:36px 34px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+.loginBox h1{font-size:20px;}
+.loginBox .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.brand .logoMark{width:38px;height:38px;border-radius:8px;background:var(--copper);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px;}
+.loginBox .sub{color:var(--muted);font-size:12.5px;margin-bottom:20px;}
+.loginBox .btn{width:100%;justify-content:center;margin-top:6px;padding:11px;}
+.linkline{margin-top:14px;font-size:12.5px;text-align:center;color:var(--muted);}
+.linkline a{color:var(--teal);cursor:pointer;text-decoration:underline;}
+.errMsg{color:var(--danger);font-size:12.5px;margin-top:6px;min-height:16px;}
+/* APP LAYOUT */
+#app{display:none;height:100vh;}
+.shell{display:grid;grid-template-columns:230px 1fr;height:100vh;}
+.sidebar{background:var(--navy);color:#fff;overflow-y:auto;padding:16px 0;}
+.sidebar .brand{display:flex;gap:10px;align-items:center;padding:6px 18px 18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:8px;}
+.sidebar .brand .logoMark{width:34px;height:34px;border-radius:8px;background:var(--copper);display:flex;align-items:center;justify-content:center;font-weight:800;}
+.sidebar .brand div b{font-size:14px;display:block;}
+.sidebar .brand div span{font-size:10.5px;color:#B9CBC8;}
+.navgroup{margin-bottom:6px;}
+.navgroup .navlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#7FA39E;padding:10px 18px 4px;}
+.navitem{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:13.5px;color:#DCE9E7;cursor:pointer;border-left:3px solid transparent;}
+.navitem:hover{background:rgba(255,255,255,.06);}
+.navitem.active{background:rgba(190,106,52,.18);border-left-color:var(--copper);color:#fff;font-weight:600;}
+.main{overflow-y:auto;padding:22px 26px;}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.topbar h2{font-size:20px;}
+.topbar .right{display:flex;gap:10px;align-items:center;}
+.badge{background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:20px;font-size:12.5px;color:var(--muted);}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.kpi{background:var(--card);border-radius:var(--radius);border:1px solid var(--line);padding:16px;border-top:4px solid var(--teal);}
+.kpi.c2{border-top-color:var(--copper);}
+.kpi.c3{border-top-color:var(--good);}
+.kpi.c4{border-top-color:var(--warn);}
+.kpi .label{font-size:12px;color:var(--muted);font-weight:600;}
+.kpi .value{font-size:23px;font-weight:800;color:var(--navy);margin-top:4px;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;}
+.toolbar .search{flex:1;max-width:280px;}
+.modalOverlay{position:fixed;inset:0;background:rgba(15,30,32,.45);display:none;align-items:center;justify-content:center;z-index:500;}
+.modalOverlay.show{display:flex;}
+.modalBox{background:#fff;border-radius:12px;padding:22px 24px;width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modalBox.wide{width:760px;}
+.modalBox .closeRow{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.modalBox .closeRow .x{cursor:pointer;font-size:20px;color:var(--muted);}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+.tabs .tab{padding:8px 14px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;}
+.tabs .tab.active{color:var(--teal);border-color:var(--teal);}
+.rowline{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.itemsTable input{padding:5px 7px;font-size:13px;}
+.muted{color:var(--muted);font-size:12.5px;}
+.right-align{text-align:right;}
+.section-actions{display:flex;gap:8px;}
+.invoicePreview{background:#fff;border:1px solid var(--line);padding:26px;font-size:13px;}
+.invoicePreview .ihead{display:flex;justify-content:space-between;border-bottom:2px solid var(--navy);padding-bottom:12px;margin-bottom:12px;}
+.invoicePreview .ihead img{max-height:60px;}
+.invoicePreview table{margin:10px 0;}
+.invoicePreview .totals{margin-left:auto;width:260px;}
+.invoicePreview .totals div{display:flex;justify-content:space-between;padding:3px 0;}
+.chartWrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
+.attRow{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);}
+@media print{
+  #app .sidebar,#app .topbar,.no-print{display:none !important;}
+  .main{padding:0;}
+  body{background:#fff;}
+}
+.emptyState{padding:30px;text-align:center;color:var(--muted);}
+.langToggle{display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;}
+.langToggle span{padding:5px 12px;font-size:12px;cursor:pointer;color:var(--muted);}
+.langToggle span.active{background:var(--teal);color:#fff;}
+#syncBadge{display:flex;align-items:center;gap:6px;}
+#syncBadge .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;}
+#syncBadge.ok .dot{background:var(--good);}
+#syncBadge.err .dot{background:var(--danger);}
+#syncBadge.busy .dot{background:var(--warn);}
+.cloudLoading{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;margin-top:10px;}
+.cloudLoading .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="loginBox" id="loginBoxInner">
+    <div class="brand"><div class="logoMark">MP</div><div><b style="font-size:16px;color:var(--navy)">Monzu Plumbing Works</b></div></div>
+    <div class="sub">Point of Sale — sign in to continue</div>
+    <div id="loginView">
+      <div class="field"><label>Username</label><input id="loginUser" placeholder="admin"></div>
+      <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••"></div>
+      <button class="btn" style="background:var(--copper)" onclick="doLogin()">Sign In</button>
+      <div class="errMsg" id="loginErr"></div>
+      <div class="linkline"><a onclick="showRecover()">Forgot username or password?</a></div>
+      <div class="cloudLoading" id="cloudLoading"><span class="spin"></span> Connecting to database…</div>
+    </div>
+    <div id="recoverView" style="display:none">
+      <p class="muted">Enter your unique recovery number to reset your admin credentials.</p>
+      <div class="field"><label>Unique Number</label><input id="recoverCode" placeholder="Enter unique number"></div>
+      <div id="recoverStep2" style="display:none">
+        <div class="field"><label>New Username</label><input id="newUser"></div>
+        <div class="field"><label>New Password</label><input id="newPass" type="password"></div>
+      </div>
+      <button class="btn" style="background:var(--copper)" onclick="doRecover()">Continue</button>
+      <div class="errMsg" id="recoverErr"></div>
+      <div class="linkline"><a onclick="showLogin()">Back to sign in</a></div>
+      <div class="linkline">Lost your recovery number? Use the <a onclick="showRecoveryCodeHelp()">admin recovery code</a> option instead.</div>
+    </div>
+    <div id="recoveryCodeView" style="display:none">
+      <p class="muted">Enter the master admin recovery code to unlock login access.</p>
+      <div class="field"><label>Recovery Code</label><input id="recoveryCodeInput" placeholder="Enter recovery code"></div>
+      <button class="btn" style="background:var(--copper)" onclick="doRecoveryCode()">Unlock</button>
+      <div class="errMsg" id="recoveryCodeErr"></div>
+      <div class="linkline"><a onclick="showLogin()">Back to sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="shell">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="main">
+      <div class="topbar">
+        <h2 id="pageTitle">Dashboard</h2>
+        <div class="right">
+          <div class="langToggle">
+            <span id="langBn" onclick="setLang('bn')">বাংলা</span>
+            <span id="langEn" onclick="setLang('en')">EN</span>
+          </div>
+          <div class="badge" id="syncBadge"><span class="dot"></span><span id="syncText">Synced</span></div>
+          <div class="badge" id="userBadge">admin</div>
+          <button class="btn ghost small" onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <div id="pageContent"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modalOverlay" id="modalOverlay">
+  <div class="modalBox" id="modalBox"></div>
+</div>
+
+<script>
+/* ============================================================
+   MONZU PLUMBING WORKS — POS SYSTEM (single file, in-memory)
+   All data lives in the `DB` object for this session.
+   ============================================================ */
+
+const RECOVERY = { uniqueNumber: "504104", adminRecoveryCode: "010210963446" };
+
+let DB = {
+  admins: [
+    { id: 1, username: "admin", password: "1234", role: "Super Admin", isSuper: true }
+  ],
+  products: [
+    { id: 1, brand: "Monzu", model: "0.5HP Water Pump", qty: 12, buyPrice: 3200, sellPrice: 4200, warrantyValue: 12, warrantyUnit: "months" },
+    { id: 2, brand: "Rehau", model: "PPR Pipe 20mm (4m)", qty: 60, buyPrice: 220, sellPrice: 320, warrantyValue: 0, warrantyUnit: "months" }
+  ],
+  sales: [],
+  purchases: [],
+  accounts: [
+    { id: 1, method: "Cash", date: todayISO(), desc: "Opening balance", amount: 20000, direction: "in" }
+  ],
+  customers: [],
+  staff: [
+    { id: 1, name: "Karim Mia", role: "Technician", salary: 15000, advance: 2000, salaryIncome: 15000, salaryDeduction: 0, bonus: 0, tiffinAllowance: 0, attendance: [] }
+  ],
+  notes: [],
+  repairs: [],
+  imports: [],
+  dealers: [],
+  expenses: [],
+  extraIncome: [],
+  premiumCare: [],
+  historicalDues: [],
+  repairParts: [
+    { id: 1, name: "Copper Coil Wire (1kg)", price: 950 },
+    { id: 2, name: "Heavy Duty Pump Impeller", price: 450 },
+    { id: 3, name: "Water Pump Seal 12mm", price: 120 }
+  ],
+  settings: {
+    companyName: "Monzu Plumbing Works",
+    proprietor: "Mozzamal Hossain Monzu",
+    phone: "01XXXXXXXXX",
+    address: "Your Shop Address, City",
+    logo: "",
+    signature: "",
+    greeting: "Thank you for your business — we truly appreciate your trust in us.",
+    smsDueTemplate: "Dear {customer}, your due amount of {due} BDT for invoice {invoice} is pending. Please clear it soon. - Monzu Plumbing Works",
+    smsInvoiceTemplate: "Dear {customer}, thank you for your purchase. Invoice: {invoice}, Total: {total} BDT, Paid: {paid} BDT. - Monzu Plumbing Works",
+    language: "en"
+  }
+};
+
+const SUPABASE_URL = 'https://xxkakpcdyzsffkkimevi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4a2FrcGNkeXpzZmZra2ltZXZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMzM4ODcsImV4cCI6MjA5ODkwOTg4N30.qftSovAfy-JqfWIt0GdOrVmcOvZ6mqdhh81UyF7R1HQ';
+const STATE_ROW_ID = 'monzu_pos_main';
+let sbClient = null;
+let cloudReady = false;
+try{
+  sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){ console.error('Supabase client init failed', e); }
+
+function setSyncBadge(state, text){
+  const el = document.getElementById('syncBadge');
+  if(!el) return;
+  el.classList.remove('ok','err','busy');
+  if(state) el.classList.add(state);
+  document.getElementById('syncText').textContent = text;
+}
+
+function mergeIntoDB(cloudData){
+  if(!cloudData || typeof cloudData !== 'object') return;
+  Object.keys(cloudData).forEach(k=>{ DB[k] = cloudData[k]; });
+}
+
+async function loadCloudDB(){
+  if(!sbClient){ 
+    document.getElementById('cloudLoading').innerHTML = '⚠ Supabase library failed to load. Check your internet connection.';
+    return;
+  }
+  try{
+    const { data, error } = await sbClient
+      .from('pos_app_state')
+      .select('data')
+      .eq('id', STATE_ROW_ID)
+      .maybeSingle();
+    if(error) throw error;
+    if(data && data.data){
+      mergeIntoDB(data.data);
+      let maxId = 1000;
+      Object.values(DB).forEach(v=>{
+        if(Array.isArray(v)) v.forEach(item=>{ if(item && typeof item.id==='number' && item.id>maxId) maxId=item.id; });
+      });
+      seq = maxId;
+    } else {
+      await sbClient.from('pos_app_state').upsert({ id: STATE_ROW_ID, data: DB, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    }
+    cloudReady = true;
+    const cl = document.getElementById('cloudLoading');
+    if(cl) cl.innerHTML = '✓ Connected to database';
+  } catch(e){
+    console.error('Cloud load failed', e);
+    const cl = document.getElementById('cloudLoading');
+    if(cl){ cl.style.color = 'var(--danger)'; cl.innerHTML = '⚠ Could not reach database. <a onclick="loadCloudDB()" style="color:var(--teal);cursor:pointer;text-decoration:underline">Retry</a>'; }
+  }
+}
+
+let saveTimer = null;
+function saveDB(){
+  if(!sbClient || !cloudReady) return; 
+  setSyncBadge('busy','Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      const { error } = await sbClient
+        .from('pos_app_state')
+        .upsert({ id: STATE_ROW_ID, data: DB, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+      if(error) throw error;
+      setSyncBadge('ok','Synced');
+    }catch(e){
+      console.error('Cloud save failed', e);
+      setSyncBadge('err','Sync error');
+    }
+  }, 500);
+}
+setInterval(saveDB, 8000); 
+
+let session = { user: null };
+let seq = 1000;
+function nextId(){ return ++seq; }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function fmt(n){ return (Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:2}); }
+function money(n){ return "৳"+fmt(n); }
+
+/* ---------------- TRANSLATIONS ---------------- */
+const T = {
+  en: {
+    dashboard:"Dashboard", quicksell:"Quick Sell", invoices:"Sales / Invoices", purchases:"Buy / Purchases",
+    stock:"Stock Management", payments:"Due System Overview", accounts:"Accounts Ledger", warranty:"Warranty Claim",
+    premium:"Premium Care", customers:"Customer Info", dealers:"Dealership", staff:"Staff Dashboard",
+    expenses:"Expenses", extraincome:"Extra Income", repairs:"Workshop Repairs", imports:"Import Statement",
+    reports:"Accounting Books", notes:"Quick Notes", sms:"SMS & Invoice Template", admins:"Admin Management",
+    settings:"Settings", menu_sales:"Sales Module", menu_ops:"Operations", menu_people:"People & Staff", menu_finance:"Financial Books",
+    menu_system:"System Config"
+  },
+  bn: {
+    dashboard:"ড্যাশবোর্ড", quicksell:"কুইক সেল", invoices:"বিক্রয় / ইনভয়েস", purchases:"ক্রয়",
+    stock:"স্টক ম্যানেজমেন্ট", payments:"বাকি সিস্টেম বিবরণ", accounts:"হিসাব খাতা", warranty:"ওয়ারেন্টি ক্লেইম",
+    premium:"প্রিমিয়াম কেয়ার", customers:"কাস্টমার তথ্য", dealers:"ডিলারশিপ", staff:"স্টাফ ম্যানেজমেন্ট",
+    expenses:"খরচ", extraincome:"অতিরিক্ত আয়", repairs:"রিপেয়ারিং ওয়ার্কশপ", imports:"ইমপোর্ট স্টেটমেন্ট",
+    reports:"অ্যাকাউন্টিং বুকস", notes:"কুইক নোট", sms:"এসএমএস ও ইনভয়েস টেমপ্লেট", admins:"অ্যাডমিন ম্যানেজমেন্ট",
+    settings:"সেটিংস", menu_sales:"বিক্রয়", menu_ops:"কার্যক্রম", menu_people:"জনবল", menu_finance:"অর্থ খাতা",
+    menu_system:"সিস্টেম"
+  }
+};
+function tr(key){ return T[DB.settings.language][key] || key; }
+
+/* ---------------- LOGIN LOGIC ---------------- */
+function doLogin(){
+  if(!cloudReady){ document.getElementById('loginErr').textContent = "Still connecting to the database, please wait a moment…"; return; }
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const admin = DB.admins.find(a=>a.username===u && a.password===p);
+  if(!admin){ document.getElementById('loginErr').textContent = "Invalid username or password."; return; }
+  session.user = admin;
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  initApp();
+}
+function showRecover(){
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('recoveryCodeView').style.display='none';
+  document.getElementById('recoverView').style.display='block';
+}
+function showLogin(){
+  document.getElementById('recoverView').style.display='none';
+  document.getElementById('recoveryCodeView').style.display='none';
+  document.getElementById('loginView').style.display='block';
+  document.getElementById('loginErr').textContent='';
+}
+function showRecoveryCodeHelp(){
+  document.getElementById('recoverView').style.display='none';
+  document.getElementById('recoveryCodeView').style.display='block';
+}
+function doRecover(){
+  const code = document.getElementById('recoverCode').value.trim();
+  const err = document.getElementById('recoverErr');
+  if(document.getElementById('recoverStep2').style.display==='none'){
+    if(code !== RECOVERY.uniqueNumber){ err.textContent="Incorrect unique number."; return; }
+    err.textContent="";
+    document.getElementById('recoverStep2').style.display='block';
+  } else {
+    const nu = document.getElementById('newUser').value.trim();
+    const np = document.getElementById('newPass').value;
+    if(!nu || !np){ err.textContent="Please fill both fields."; return; }
+    const superAdmin = DB.admins.find(a=>a.isSuper);
+    superAdmin.username = nu; superAdmin.password = np;
+    err.style.color='var(--good)'; err.textContent="Credentials updated. Please sign in.";
+    saveDB();
+    setTimeout(showLogin, 1200);
+  }
+}
+function doRecoveryCode(){
+  const code = document.getElementById('recoveryCodeInput').value.trim();
+  const err = document.getElementById('recoveryCodeErr');
+  if(code !== RECOVERY.adminRecoveryCode){ err.textContent="Invalid recovery code."; return; }
+  err.style.color='var(--good)'; err.textContent="Verified. You may now reset credentials via 'Forgot username or password'.";
+  setTimeout(showRecover,1000);
+}
+function logout(){
+  session.user=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  showLogin();
+  document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
+}
+
+/* ---------------- APP INIT / NAV ---------------- */
+const NAV = [
+  { group:'menu_sales', items:[
+    ['dashboard','dashboard','📊'], ['quicksell','quicksell','⚡'], ['invoices','invoices','🧾'], ['purchases','purchases','📦']
+  ]},
+  { group:'menu_ops', items:[
+    ['stock','stock','🏷️'], ['warranty','warranty','🛡️'], ['premium','premium','⭐'], ['repairs','repairs','🔧'], ['imports','imports','🚢']
+  ]},
+  { group:'menu_people', items:[
+    ['customers','customers','👤'], ['dealers','dealers','🏢'], ['staff','staff','👷']
+  ]},
+  { group:'menu_finance', items:[
+    ['payments','payments','💳'], ['accounts','accounts','🏦'], ['expenses','expenses','📉'], ['extraincome','extraincome','📈'], ['reports','reports','📑']
+  ]},
+  { group:'menu_system', items:[
+    ['notes','notes','📝'], ['sms','sms','💬'], ['admins','admins','🔐'], ['settings','settings','⚙️']
+  ]}
+];
+let currentPage = 'dashboard';
+
+function initApp(){
+  document.getElementById('userBadge').textContent = session.user.username + " (" + session.user.role + ")";
+  renderSidebar();
+  goto('dashboard');
+  updateLangUI();
+}
+function renderSidebar(){
+  let html = `<div class="brand"><div class="logoMark">MP</div><div><b>Monzu Plumbing</b><span>POS System</span></div></div>`;
+  NAV.forEach(g=>{
+    html += `<div class="navgroup"><div class="navlabel">${tr(g.group)}</div>`;
+    g.items.forEach(([key])=>{
+      html += `<div class="navitem${currentPage===key?' active':''}" onclick="goto('${key}')"><span>${g.items.find(i=>i[0]===key)[2]}</span><span>${tr(key)}</span></div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('sidebar').innerHTML = html;
+}
+function goto(page){
+  currentPage = page;
+  document.getElementById('pageTitle').textContent = tr(page);
+  renderSidebar();
+  const fn = window['page_'+page];
+  document.getElementById('pageContent').innerHTML = '';
+  if(fn) fn(); else document.getElementById('pageContent').innerHTML = '<div class="emptyState">Coming soon.</div>';
+  saveDB();
+}
+function setLang(l){ DB.settings.language = l; updateLangUI(); goto(currentPage); }
+function updateLangUI(){
+  document.getElementById('langBn').classList.toggle('active', DB.settings.language==='bn');
+  document.getElementById('langEn').classList.toggle('active', DB.settings.language==='en');
+}
+
+/* ---------------- MODAL HELPERS ---------------- */
+function openModal(html, wide){
+  document.getElementById('modalBox').className = 'modalBox' + (wide?' wide':'');
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function page_dashboard(){
+  const totalSales = DB.sales.reduce((s,x)=>s+x.total,0);
+  const totalDue = DB.sales.reduce((s,x)=>s+x.due,0) + DB.historicalDues.filter(d=>d.status==='Unpaid').reduce((s,x)=>s+x.amount,0);
+  const stockValue = DB.products.reduce((s,p)=>s+p.qty*p.buyPrice,0);
+  const lowStock = DB.products.filter(p=>p.qty<=5).length;
+  document.getElementById('pageContent').innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="label">Total Sales</div><div class="value">${money(totalSales)}</div></div>
+    <div class="kpi c2"><div class="label">Total Dues (Live + Before)</div><div class="value">${money(totalDue)}</div></div>
+    <div class="kpi c3"><div class="label">Stock Value</div><div class="value">${money(stockValue)}</div></div>
+    <div class="kpi c4"><div class="label">Low Stock Items</div><div class="value">${lowStock}</div></div>
+  </div>
+  <div class="grid cols-2">
+    <div class="chartWrap"><h3>Sales (Last 7 entries)</h3><canvas id="dashChart1" height="180"></canvas></div>
+    <div class="chartWrap"><h3>Payment Method Split</h3><canvas id="dashChart2" height="180"></canvas></div>
+  </div>
+  <div class="card"><h3>Quick Actions</h3>
+    <div class="section-actions">
+      <button class="btn copper" onclick="goto('quicksell')">⚡ Quick Sell / Repair Invoice</button>
+      <button class="btn" onclick="goto('stock')">🏷️ Manage Stock</button>
+      <button class="btn ghost" onclick="goto('reports')">📑 View Accounting Books</button>
+    </div>
+  </div>`;
+  const last = DB.sales.slice(-7);
+  new Chart(document.getElementById('dashChart1'), {
+    type:'bar',
+    data:{ labels:last.map(s=>s.invoiceNo), datasets:[{label:'Total', data:last.map(s=>s.total), backgroundColor:'#1C6E75'}]},
+    options:{plugins:{legend:{display:false}}}
+  });
+  const methodMap = {};
+  DB.sales.forEach(s=>{ methodMap[s.paymentMethod] = (methodMap[s.paymentMethod]||0)+s.paid; });
+  new Chart(document.getElementById('dashChart2'), {
+    type:'pie',
+    data:{ labels:Object.keys(methodMap).length ? Object.keys(methodMap) : ['No Data'], datasets:[{data:Object.values(methodMap).length ? Object.values(methodMap) : [1], backgroundColor:['#1C6E75','#BE6A34','#2E7D5B','#B5860B','#B23A3A','#6C4AB6']}]}
+  });
+}
+
+/* ============================================================
+   PRODUCTS / STOCK
+   ============================================================ */
+function page_stock(){
+  let rows = DB.products.map(p=>`
+    <tr>
+      <td>${p.brand}</td><td>${p.model}</td>
+      <td>${p.qty}${p.qty<=5?' <span class="pill due">LOW</span>':''}</td>
+      <td>${money(p.buyPrice)}</td><td>${money(p.sellPrice)}</td>
+      <td>${p.warrantyValue>0 ? p.warrantyValue+' '+p.warrantyUnit : 'No warranty'}</td>
+      <td>
+        <button class="btn small ghost" onclick="editProduct(${p.id})">Edit</button>
+        <button class="btn small danger" onclick="deleteProduct(${p.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar">
+    <input class="search" placeholder="Search products..." oninput="filterStockTable(this.value)">
+    <div class="section-actions">
+      <button class="btn" onclick="downloadStockPDF()">⬇ Download Stock Statement</button>
+      <button class="btn copper" onclick="editProduct(null)">+ Add Product</button>
+    </div>
+  </div>
+  <div class="card"><table id="stockTable"><thead><tr><th>Brand</th><th>Model</th><th>Qty</th><th>Buy Price</th><th>Sell Price</th><th>Warranty</th><th>Actions</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan=7 class="emptyState">No products yet.</td></tr>'}</tbody></table></div>`;
+}
+function filterStockTable(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#stockTable tbody tr').forEach(tr=>{
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+function editProduct(id){
+  const p = id ? DB.products.find(x=>x.id===id) : {brand:'',model:'',qty:0,buyPrice:0,sellPrice:0,warrantyValue:0,warrantyUnit:'months'};
+  openModal(`
+  <div class="closeRow"><h3>${id?'Edit':'Add'} Product</h3><span class="x" onclick="closeModal()">✕</span></div>
+  <div class="grid cols-2">
+    <div class="field"><label>Brand</label><input id="pBrand" value="${p.brand}"></div>
+    <div class="field"><label>Model / Item Name</label><input id="pModel" value="${p.model}"></div>
+    <div class="field"><label>Quantity</label><input id="pQty" type="number" value="${p.qty}"></div>
+    <div class="field"><label>Buy Price</label><input id="pBuy" type="number" value="${p.buyPrice}"></div>
+    <div class="field"><label>Sell Price</label><input id="pSell" type="number" value="${p.sellPrice}"></div>
+    <div class="field"><label>Warranty Value (0 = none)</label><input id="pWarVal" type="number" value="${p.warrantyValue}"></div>
+    <div class="field"><label>Warranty Unit</label>
+      <select id="pWarUnit"><option ${p.warrantyUnit==='days'?'selected':''}>days</option><option ${p.warrantyUnit==='months'?'selected':''}>months</option><option ${p.warrantyUnit==='years'?'selected':''}>years</option></select>
+    </div>
+  </div>
+  <button class="btn copper" onclick="saveProduct(${id})">Save</button>`);
+}
+function saveProduct(id){
+  const data = {
+    brand: document.getElementById('pBrand').value,
+    model: document.getElementById('pModel').value,
+    qty: Number(document.getElementById('pQty').value),
+    buyPrice: Number(document.getElementById('pBuy').value),
+    sellPrice: Number(document.getElementById('pSell').value),
+    warrantyValue: Number(document.getElementById('pWarVal').value),
+    warrantyUnit: document.getElementById('pWarUnit').value
+  };
+  if(id){ Object.assign(DB.products.find(x=>x.id===id), data); }
+  else { data.id = nextId(); DB.products.push(data); }
+  closeModal(); goto('stock');
+}
+function deleteProduct(id){ if(confirm('Delete this product?')){ DB.products = DB.products.filter(x=>x.id!==id); goto('stock'); } }
+function downloadStockPDF(){ buildPrintable('Stock Statement', buildStockStatementHTML()); }
+function buildStockStatementHTML(){
+  let rows = DB.products.map(p=>`<tr><td>${p.brand}</td><td>${p.model}</td><td>${p.qty}</td><td>${money(p.buyPrice)}</td><td>${money(p.sellPrice)}</td><td>${money(p.qty*p.buyPrice)}</td></tr>`).join('');
+  const totalVal = DB.products.reduce((s,p)=>s+p.qty*p.buyPrice,0);
+  return `<table><thead><tr><th>Brand</th><th>Model</th><th>Qty</th><th>Buy Price</th><th>Sell Price</th><th>Stock Value</th></tr></thead>
+  <tbody>${rows}</tbody></table><h3 style="text-align:right">Total Stock Value: ${money(totalVal)}</h3>`;
+}
+
+/* ============================================================
+   QUICK SELL / INVOICE CREATION (With Repairing Scenario Integrated)
+   ============================================================ */
+let cart = [];
+let salesType = 'standard'; // standard or repair
+
+function page_quicksell(){
+  document.getElementById('pageContent').innerHTML = `
+  <div class="tabs">
+    <div class="tab ${salesType==='standard'?'active':''}" onclick="setSalesType('standard')">Standard Product Invoice</div>
+    <div class="tab ${salesType==='repair'?'active':''}" onclick="setSalesType('repair')">Workshop Repairing Invoice</div>
+  </div>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3 id="itemSectionTitle">Add Product Item</h3>
+      
+      <div id="standardProductFields">
+        <div class="field"><label>Product</label>
+          <select id="qsProduct" onchange="qsFillPrice()">${DB.products.map(p=>`<option value="${p.id}">${p.brand} - ${p.model} (Stock:${p.qty})</option>`).join('')}</select>
+        </div>
+      </div>
+
+      <div id="repairProductFields" style="display:none;">
+        <div class="field"><label>Workshop Service Type</label>
+          <select id="qsRepairType">
+            <option value="Coil Winding">Coil Winding / Coiling</option>
+            <option value="Pump Set Servicing">Pump Set Servicing</option>
+            <option value="Custom Motor Overhaul">Custom Motor Overhaul</option>
+          </select>
+        </div>
+        <div class="field" style="display:flex; gap:10px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label>Workshop Spare Parts Used</label>
+            <select id="qsRepairPart">${DB.repairParts.map(pt=>`<option value="${pt.id}">${pt.name} - (${money(pt.price)})</option>`).join('')}</select>
+          </div>
+          <button class="btn ghost" onclick="openAddPartWorkshopModal()" type="button">+ Manage Parts List</button>
+        </div>
+        <div class="field"><label>Repair Custom Description</label>
+          <input id="qsRepairDesc" placeholder="e.g., Brand: Pedrollo, Model: 1HP, Burnt coil replacement">
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="field"><label>Quantity</label><input id="qsQty" type="number" value="1" min="1"></div>
+        <div class="field"><label>Unit Price / Repair Service Rate</label><input id="qsPrice" type="number"></div>
+      </div>
+      <button class="btn copper" onclick="addToCart()">+ Add Item Row to Invoice</button>
+      
+      <h3 style="margin-top:18px">Invoice Itemized List</h3>
+      <table><thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Subtotal</th><th></th></tr></thead>
+      <tbody id="cartBody">${renderCartRows()}</tbody></table>
+      <div style="text-align:right;margin-top:10px;font-weight:700">Invoice Subtotal: <span id="cartTotalVal">${money(cartTotal())}</span></div>
+    </div>
+    
+    <div class="card">
+      <h3>Customer & Payment Settlement</h3>
+      <div class="grid cols-2">
+        <div class="field"><label>Customer Name</label><input id="qsCustomer"></div>
+        <div class="field"><label>Phone Number</label><input id="qsPhone"></div>
+      </div>
+      <div class="field"><label>Discount Amount</label><input id="qsDiscount" type="number" value="0" oninput="qsRecalcPaid()"></div>
+      <div class="field"><label>Payment Scenario</label>
+        <select id="qsPayScenario" onchange="qsToggleScenario()">
+          <option value="full">Full Payment Now</option>
+          <option value="partial">Partial Payment (Due Remaining)</option>
+          <option value="due">Full Due (Pay Later)</option>
+        </select>
+      </div>
+      <div id="qsPaidWrap" class="field"><label>Amount Paid Now</label><input id="qsPaid" type="number" value="0"></div>
+      <div class="field"><label>Payment Method Book</label>
+        <select id="qsMethod"><option>Cash</option><option>bKash</option><option>Rocket</option><option>Nagad</option><option>Bank</option></select>
+      </div>
+      <button class="btn" style="width:100%;padding:12px;font-size:15px" onclick="finalizeSale()">✅ Complete Order & Generate Customized Invoice</button>
+    </div>
+  </div>`;
+  setSalesType(salesType);
+}
+
+function setSalesType(type) {
+  salesType = type;
+  const standardFields = document.getElementById('standardProductFields');
+  const repairFields = document.getElementById('repairProductFields');
+  const sectionTitle = document.getElementById('itemSectionTitle');
+  
+  if(type === 'standard') {
+    if(standardFields) standardFields.style.display = 'block';
+    if(repairFields) repairFields.style.display = 'none';
+    if(sectionTitle) sectionTitle.textContent = 'Add Product Item';
+    qsFillPrice();
+  } else {
+    if(standardFields) standardFields.style.display = 'none';
+    if(repairFields) repairFields.style.display = 'block';
+    if(sectionTitle) sectionTitle.textContent = 'Add Repair Job Details';
+    document.getElementById('qsPrice').value = 1500; // Default service/winding base charge estimate
+  }
+}
+
+function openAddPartWorkshopModal() {
+  openModal(`
+    <div class="closeRow"><h3>Manage Workshop Spare Parts Inventory</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div class="field"><label>Part Name / Specification</label><input id="newPartName" placeholder="e.g., Pump Fan Blade, Bearing 6202"></div>
+    <div class="field"><label>Standard Base Price</label><input id="newPartPrice" type="number" placeholder="500"></div>
+    <button class="btn copper" onclick="saveWorkshopPart()">Add Part Spec</button>
+    <table style="margin-top:15px;">
+      <thead><tr><th>Part Details</th><th>Price</th></tr></thead>
+      <tbody>${DB.repairParts.map(pt=>`<tr><td>${pt.name}</td><td>${money(pt.price)}</td></tr>`).join('')}</tbody>
+    </table>
+  `);
+}
+
+function saveWorkshopPart() {
+  const name = document.getElementById('newPartName').value.trim();
+  const price = Number(document.getElementById('newPartPrice').value || 0);
+  if(!name) return;
+  DB.repairParts.push({ id: nextId(), name, price });
+  closeModal();
+  page_quicksell();
+}
+
+function qsFillPrice(){
+  if(salesType === 'standard') {
+    const p = DB.products.find(x=>x.id==document.getElementById('qsProduct').value);
+    if(p) document.getElementById('qsPrice').value = p.sellPrice;
+  }
+}
+
+function qsRecalcPaid() {
+  const scenario = document.getElementById('qsPayScenario').value;
+  if(scenario === 'full') {
+    const discount = Number(document.getElementById('qsDiscount').value || 0);
+    document.getElementById('qsPaid').value = Math.max(0, cartTotal() - discount);
+  }
+}
+
+function qsToggleScenario(){
+  const s = document.getElementById('qsPayScenario').value;
+  document.getElementById('qsPaidWrap').style.display = s==='due' ? 'none' : 'block';
+  if(s==='full'){ 
+    qsRecalcPaid();
+  } else if (s==='due') {
+    document.getElementById('qsPaid').value = 0;
+  }
+}
+
+function cartTotal() {
+  return cart.reduce((s, c) => s + (c.qty * c.price), 0);
+}
+
+function addToCart(){
+  const qty = Number(document.getElementById('qsQty').value);
+  const price = Number(document.getElementById('qsPrice').value);
+  if(qty <= 0) return;
+
+  if(salesType === 'standard') {
+    const p = DB.products.find(x=>x.id==document.getElementById('qsProduct').value);
+    if(!p) return;
+    cart.push({ productId: p.id, type: 'standard', desc: `${p.brand} - ${p.model}`, qty, price });
+  } else {
+    const srvType = document.getElementById('qsRepairType').value;
+    const partSelected = DB.repairParts.find(pt=>pt.id==document.getElementById('qsRepairPart').value);
+    const customNotes = document.getElementById('qsRepairDesc').value.trim();
+    
+    let description = `[Repair Service] ${srvType}`;
+    if(customNotes) description += ` (${customNotes})`;
+    if(partSelected) description += ` incl. ${partSelected.name}`;
+
+    cart.push({ productId: null, type: 'repair', desc: description, qty, price });
+  }
+
+  document.getElementById('cartBody').innerHTML = renderCartRows();
+  document.getElementById('cartTotalVal').textContent = money(cartTotal());
+  qsToggleScenario();
+}
+
+function renderCartRows(){
+  return cart.map((c,i)=>`<tr><td>${c.desc}</td><td>${c.qty}</td><td>${money(c.price)}</td><td>${money(c.qty*c.price)}</td><td><button class="btn small danger" onclick="removeCartItem(${i})">✕</button></td></tr>`).join('') || '<tr><td colspan=5 class="emptyState">Cart is empty</td></tr>';
+}
+
+function removeCartItem(i){ 
+  cart.splice(i,1); 
+  document.getElementById('cartBody').innerHTML = renderCartRows(); 
+  document.getElementById('cartTotalVal').textContent = money(cartTotal());
+  qsToggleScenario();
+}
+
+function finalizeSale(){
+  if(cart.length===0){ alert('Cart is empty.'); return; }
+  const discount = Number(document.getElementById('qsDiscount').value||0);
+  const total = cartTotal() - discount;
+  const scenario = document.getElementById('qsPayScenario').value;
+  const paid = scenario==='due' ? 0 : Number(document.getElementById('qsPaid').value||0);
+  const due = Math.max(total - paid, 0);
+  const method = document.getElementById('qsMethod').value;
+  const customer = document.getElementById('qsCustomer').value || 'Walk-in Customer';
+  const phone = document.getElementById('qsPhone').value || '';
+  const invoiceNo = 'INV-' + nextId();
+  
+  const sale = {
+    id: nextId(), invoiceNo, date: todayISO(), customer, phone,
+    items: cart.map(c=>({...c})), discount, total, paid, due,
+    paymentMethod: method, isRepairInvoice: cart.some(c=>c.type==='repair'),
+    status: due<=0 ? 'paid' : (paid>0?'partial':'due')
+  };
+  
+  DB.sales.push(sale);
+  
+  // Deduct stock for standard goods inside invoice
+  cart.forEach(c=>{ 
+    if(c.productId) {
+      const p=DB.products.find(x=>x.id===c.productId); 
+      if(p) p.qty -= c.qty; 
+    }
+  });
+
+  if(paid>0){ 
+    DB.accounts.push({id:nextId(), method, date:todayISO(), desc:'Sale / Repair Invoice '+invoiceNo, amount:paid, direction:'in'}); 
+  }
+  if(phone && !DB.customers.find(c=>c.phone===phone)){ 
+    DB.customers.push({id:nextId(), name:customer, phone}); 
+  }
+
+  cart = [];
+  closeModal();
+  showInvoicePreview(sale.id);
+  page_quicksell();
+}
+
+/* ============================================================
+   SALES / INVOICES LIST
+   ============================================================ */
+function page_invoices(){
+  let rows = DB.sales.slice().reverse().map(s=>`
+    <tr>
+      <td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.customer}</td><td>${s.isRepairInvoice ? '🔧 Repair':'📦 Standard'}</td><td>${money(s.total)}</td>
+      <td>${money(s.paid)}</td><td>${money(s.due)}</td>
+      <td><span class="pill ${s.status}">${s.status.toUpperCase()}</span></td>
+      <td>
+        <button class="btn small ghost" onclick="showInvoicePreview(${s.id})">View Invoice</button>
+        <button class="btn small copper" onclick="openPaymentUpdate(${s.id})">Collect Due</button>
+      </td>
+    </tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><input class="search" placeholder="Search by invoice/customer" oninput="filterSalesTable(this.value)"><div></div></div>
+  <div class="card"><table id="salesTable"><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Type</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan=9 class="emptyState">No sales yet. Try Quick Sell.</td></tr>'}</tbody></table></div>`;
+}
+function filterSalesTable(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#salesTable tbody tr').forEach(tr=>{ tr.style.display = tr.textContent.toLowerCase().includes(q)?'':'none'; });
+}
+function openPaymentUpdate(id){
+  const s = DB.sales.find(x=>x.id===id);
+  openModal(`<div class="closeRow"><h3>Update Payment — ${s.invoiceNo}</h3><span class="x" onclick="closeModal()">✕</span></div>
+  <p>Current Invoice Due: <b>${money(s.due)}</b></p>
+  <div class="field"><label>Amount to Pay Now</label><input id="payAmt" type="number" max="${s.due}"></div>
+  <div class="field"><label>Method Ledger Account</label><select id="payMethod"><option>Cash</option><option>bKash</option><option>Rocket</option><option>Nagad</option><option>Bank</option></select></div>
+  <button class="btn copper" onclick="submitPayment(${id})">Confirm Payment</button>`);
+}
+function submitPayment(id){
+  const s = DB.sales.find(x=>x.id===id);
+  const amt = Number(document.getElementById('payAmt').value||0);
+  const method = document.getElementById('payMethod').value;
+  if(amt<=0) return;
+  s.paid += Math.min(amt, s.due);
+  s.due = Math.max(s.total - s.paid, 0);
+  s.status = s.due<=0?'paid':(s.paid>0?'partial':'due');
+  DB.accounts.push({id:nextId(), method, date:todayISO(), desc:'Invoice collection '+s.invoiceNo, amount:amt, direction:'in'});
+  closeModal(); goto('invoices');
+}
+
+/* ---- Feature 2 Customization: Invoice Structure Layout ---- */
+function showInvoicePreview(id){
+  const s = DB.sales.find(x=>x.id===id);
+  const st = DB.settings;
+  let itemRows = s.items.map((it,i)=>`<tr><td>${i+1}</td><td>${it.desc}</td><td>${money(it.price)}</td><td>${it.qty}</td><td>${money(it.qty*it.price)}</td></tr>`).join('');
+  const html = `
+  <div class="invoicePreview" id="invoicePrintArea">
+    <div class="ihead">
+      <div>${st.logo?`<img src="${st.logo}">`:''}<h2>${st.companyName}</h2><div class="muted">Proprietor: ${st.proprietor}<br>${st.address}<br>Phone: ${st.phone}</div></div>
+      <div style="text-align:right"><h3>${s.isRepairInvoice ? 'WORKSHOP REPAIR INVOICE' : 'SALES INVOICE'}</h3><div class="muted">No: ${s.invoiceNo}<br>Date: ${s.date}</div></div>
+    </div>
+    <p><b>Customer Name:</b> ${s.customer} &nbsp;&nbsp;&nbsp;&nbsp; <b>Phone / Contact:</b> ${s.phone||'-'}</p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:50px;">SL</th>
+          <th>Description (Brand, Model, Repairing details, Spare parts specs)</th>
+          <th>Unit Price</th>
+          <th>Quantity</th>
+          <th>Amount (Rate × Quantity)</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    <div class="totals">
+      <div><span>Subtotal</span><span>${money(s.total+s.discount)}</span></div>
+      <div><span>Discount Drop</span><span>${money(s.discount)}</span></div>
+      <div><b>Grand Total</b><b>${money(s.total)}</b></div>
+      <div><span>Paid Account (${s.paymentMethod})</span><span>${money(s.paid)}</span></div>
+      <div><span style="color:var(--danger); font-weight:bold;">Due Balance</span><span style="color:var(--danger); font-weight:bold;">${money(s.due)}</span></div>
+    </div>
+    <p style="margin-top:20px;font-style:italic; border-top:1px dashed var(--line); padding-top:10px;">${st.greeting}</p>
+    ${st.signature?`<img src="${st.signature}" style="max-height:50px;margin-top:16px"><div class="muted">Authorized Manager Signature</div>`:''}
+  </div>`;
+  openModal(`<div class="closeRow"><h3>Printable Document Matrix View</h3><span class="x" onclick="closeModal()">✕</span></div>
+  ${html}
+  <div class="section-actions no-print" style="margin-top:14px">
+    <button class="btn" onclick="printArea('invoicePrintArea','${s.invoiceNo}')">🖨 Print Invoice Terminal</button>
+    <button class="btn copper" onclick="shareWhatsApp(${id})">💬 Dispatch WhatsApp ping</button>
+  </div>`, true);
+}
+function shareWhatsApp(id){
+  const s = DB.sales.find(x=>x.id===id);
+  const msg = DB.settings.smsInvoiceTemplate.replace('{customer}',s.customer).replace('{invoice}',s.invoiceNo).replace('{total}',s.total).replace('{paid}',s.paid);
+  window.open('https://wa.me/?text='+encodeURIComponent(msg), '_blank');
+}
+
+function printArea(elementId, title){
+  const content = document.getElementById(elementId).outerHTML;
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>${title}</title><style>
+    body{font-family:Arial,sans-serif;color:#16241F;padding:20px;}
+    table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #ccc;padding:8px 10px;text-align:left;}
+    th{background-color:#F4F6F5;}
+    .totals{margin-left:auto;width:260px; margin-top:15px;} .totals div{display:flex;justify-content:space-between;padding:4px 0; border-bottom:1px solid #eee;}
+    .ihead{display:flex;justify-content:space-between;border-bottom:2px solid #0F2D33;padding-bottom:10px;margin-bottom:10px;}
+  </style></head><body>${content}</body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.print(); }, 300);
+}
+function buildPrintable(title, innerHtml){
+  const w = window.open('', '_blank'); w.document.write(`<html><head><title>${title}</title><style>body{font-family:Arial,sans-serif;color:#16241F;padding:20px;} h2{color:#0F2D33;} table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;} th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;}</style></head><body><h2>${title}</h2>${innerHtml}</body></html>`); w.document.close(); setTimeout(()=>{ w.print(); }, 300);
+}
+
+/* ============================================================
+   PURCHASES (BUY)
+   ============================================================ */
+let purchaseCart = [];
+function page_purchases(){
+  let rows = DB.purchases.slice().reverse().map(p=>`<tr><td>${p.id}</td><td>${p.date}</td><td>${p.supplier}</td><td>${p.items.length} items</td><td>${money(p.total)}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>New Purchase Entry (Supplier Due Book Setup)</h3>
+      <div class="field"><label>Supplier Name / Corporate Vendor</label><input id="puSupplier"></div>
+      <div class="field"><label>Product Spec</label>
+        <select id="puProduct">${DB.products.map(p=>`<option value="${p.id}">${p.brand} - ${p.model}</option>`).join('')}</select>
+      </div>
+      <div class="grid cols-2">
+        <div class="field"><label>Quantity</label><input id="puQty" type="number" value="1"></div>
+        <div class="field"><label>Unit Supplier Cost</label><input id="puCost" type="number"></div>
+      </div>
+      <div class="field"><label>Payment Mode Scenario</label>
+        <select id="puDueScenario">
+          <option value="paid">Fully Settled Cash/Bank Trade</option>
+          <option value="due">Kept on Supplier Credit Line (Due Account)</option>
+        </select>
+      </div>
+      <button class="btn ghost" onclick="addPurchaseItem()">+ Add Item Row</button>
+      <table style="margin-top:10px"><tbody id="puCartBody">${renderPurchaseCart()}</tbody></table>
+      <div style="text-align:right;font-weight:700">Total Valuation: ${money(purchaseCart.reduce((s,i)=>s+i.qty*i.cost,0))}</div>
+      <button class="btn copper" style="width:100%;margin-top:10px" onclick="savePurchase()">✅ Commit Purchase to Ledger Accounts</button>
+    </div>
+    <div class="card">
+      <h3>B2B Procurement Logbook</h3>
+      <table><thead><tr><th>Procurement ID</th><th>Date</th><th>Supplier Block</th><th>Items Load</th><th>Total Cost</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan=5 class="emptyState">No procurement events logged.</td></tr>'}</tbody></table>
+    </div>
+  </div>`;
+}
+function renderPurchaseCart(){
+  return purchaseCart.map((c,i)=>`<tr><td>${c.brand} ${c.model}</td><td>${c.qty}</td><td>${money(c.cost)}</td><td><button class="btn small danger" onclick="purchaseCart.splice(${i},1);document.getElementById('puCartBody').innerHTML=renderPurchaseCart();">✕</button></td></tr>`).join('') || '<tr><td class="emptyState">No items added</td></tr>';
+}
+function addPurchaseItem(){
+  const p = DB.products.find(x=>x.id==document.getElementById('puProduct').value);
+  const qty = Number(document.getElementById('puQty').value);
+  const cost = Number(document.getElementById('puCost').value);
+  purchaseCart.push({productId:p.id, brand:p.brand, model:p.model, qty, cost});
+  document.getElementById('puCartBody').innerHTML = renderPurchaseCart();
+}
+function savePurchase(){
+  if(purchaseCart.length===0) return;
+  const supplier = document.getElementById('puSupplier').value || 'Generic Supplier';
+  const total = purchaseCart.reduce((s,i)=>s+i.qty*i.cost,0);
+  const scenario = document.getElementById('puDueScenario').value;
+  
+  DB.purchases.push({id:nextId(), date:todayISO(), supplier, items:[...purchaseCart], total, status: scenario});
+  purchaseCart.forEach(c=>{ const p = DB.products.find(x=>x.id===c.productId); if(p){ p.qty += c.qty; p.buyPrice = c.cost; } });
+  
+  if(scenario === 'paid') {
+    DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Settled Supplier Bill: '+supplier, amount:total, direction:'out'});
+  }
+  purchaseCart = [];
+  goto('purchases');
+}
+
+/* ============================================================
+   FEATURE 1: DUE SYSTEM MODULE (Daily Customer Dues + Prior Dues Form)
+   ============================================================ */
+function page_payments(){
+  // Extract dues dynamically from live system sales
+  const liveDueSales = DB.sales.filter(s=>s.due > 0).map(s=>({
+    dueDate: s.date,
+    modelDesc: `Invoice [${s.invoiceNo}] - ${s.items.map(i=>i.desc).join(', ')}`,
+    amount: s.due,
+    status: 'Unpaid',
+    phone: s.phone || 'N/A',
+    invoiceNo: s.invoiceNo,
+    id: s.id,
+    type: 'live'
+  }));
+
+  // Map historical entries recorded manually
+  const histDuesMapped = DB.historicalDues.map(hd=>({
+    dueDate: hd.dueDate,
+    modelDesc: `Prior Entry: ${hd.description}`,
+    amount: hd.amount,
+    status: hd.status,
+    phone: hd.phone || 'N/A',
+    invoiceNo: hd.invoiceNo || 'HIST-N/A',
+    id: hd.id,
+    type: 'historical'
+  }));
+
+  const allDuesCombined = [...liveDueSales, ...histDuesMapped];
+  const aggregateOutstandingSum = allDuesCombined.filter(d=>d.status==='Unpaid').reduce((s,x)=>s+x.amount,0);
+
+  let rowsHtml = allDuesCombined.map(d=>`
+    <tr class="due-row-record">
+      <td>${d.dueDate}</td>
+      <td><b>${d.invoiceNo}</b></td>
+      <td>${d.phone}</td>
+      <td>${d.modelDesc}</td>
+      <td>${money(d.amount)}</td>
+      <td><span class="pill ${d.status==='Paid'?'paid':'due'}">${d.status.toUpperCase()}</span></td>
+      <td>
+        ${d.status==='Unpaid' && d.type==='historical' ? `<button class="btn small copper" onclick="settlePriorDueRecord(${d.id})">Clear Manual Balance</button>` : ''}
+        ${d.status==='Unpaid' && d.type==='live' ? `<button class="btn small copper" onclick="openPaymentUpdate(${d.id})">Collect Checkout Due</button>` : ''}
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('pageContent').innerHTML = `
+  <div class="kpis" style="grid-template-columns: 1fr 2fr;">
+    <div class="kpi c2"><div class="label">Aggregate Unresolved System Debt</div><div class="value">${money(aggregateOutstandingSum)}</div></div>
+    <div class="card" style="margin-bottom:0; padding:12px;">
+      <h4 style="margin-bottom:6px;">Add Prior / Historical Outstanding Debt Record</h4>
+      <div class="grid cols-4" style="gap:8px;">
+        <div class="field" style="margin:0;"><label>Due Date</label><input type="date" id="hdDate" value="${todayISO()}"></div>
+        <div class="field" style="margin:0;"><label>Invoice / Ref No</label><input id="hdInv" placeholder="e.g., PREV-2024"></div>
+        <div class="field" style="margin:0;"><label>Phone Reference</label><input id="hdPhone" placeholder="017xxxxxxxx"></div>
+        <div class="field" style="margin:0;"><label>Model / Repair Job Specification</label><input id="hdDesc" placeholder="Pedrollo pump overhaul remaining balance"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+        <div class="field" style="margin:0; width:180px;"><label>Amount BDT</label><input type="number" id="hdAmt"></div>
+        <button class="btn copper" onclick="commitPriorDueRecord()">+ Record Prior Due Row</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="card" style="margin-top:15px;">
+    <h3>Search Engine / Daily Dues Ledger</h3>
+    <div class="toolbar" style="margin-bottom:10px;">
+      <input class="search" id="dueQueryInput" placeholder="Filter by Phone or Invoice..." oninput="runDueFilterGrid(this.value)">
+      <p class="muted">Search across system indices instantaneously matching strings.</p>
+    </div>
+    <table id="dueSystemTable">
+      <thead>
+        <tr>
+          <th>Due Date</th>
+          <th>Invoice / Reference</th>
+          <th>Phone Account</th>
+          <th>Model / Repair Breakdown Details</th>
+          <th>Amount BDT</th>
+          <th>Status</th>
+          <th>Operational Action</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml || '<tr><td colspan=7 class="emptyState">No outstanding dues listed inside the system matrix.</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+function commitPriorDueRecord() {
+  const dueDate = document.getElementById('hdDate').value;
+  const invoiceNo = document.getElementById('hdInv').value.trim() || 'HIST-' + nextId();
+  const phone = document.getElementById('hdPhone').value.trim();
+  const description = document.getElementById('hdDesc').value.trim() || 'Prior Debt Balance Load';
+  const amount = Number(document.getElementById('hdAmt').value || 0);
+
+  if(amount <= 0) { alert('Specify a valid amount.'); return; }
+  
+  DB.historicalDues.push({ id: nextId(), dueDate, invoiceNo, phone, description, amount, status: 'Unpaid' });
+  saveDB();
+  page_payments();
+}
+
+function settlePriorDueRecord(id) {
+  const rec = DB.historicalDues.find(x=>x.id===id);
+  if(!rec) return;
+  if(confirm(`Settle manual recovery of ${money(rec.amount)} to Cash Book?`)) {
+    rec.status = 'Paid';
+    DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:`Settled manual historical debt ref: ${rec.invoiceNo}`, amount:rec.amount, direction:'in'});
+    saveDB();
+    page_payments();
+  }
+}
+
+function runDueFilterGrid(q) {
+  q = q.toLowerCase().trim();
+  document.querySelectorAll('#dueSystemTable tbody tr.due-row-record').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+/* ============================================================
+   ACCOUNTS OVERVIEW SYSTEM
+   ============================================================ */
+function page_accounts(){
+  const methods = ['Cash','bKash','Rocket','Nagad','Bank'];
+  const balances = methods.map(m=>({m, bal: DB.accounts.filter(a=>a.method===m).reduce((s,a)=>s + (a.direction==='in'?a.amount:-a.amount),0)}));
+  let rows = DB.accounts.slice().reverse().map(a=>`<tr><td>${a.date}</td><td>${a.method}</td><td>${a.desc}</td><td style="color:${a.direction==='in'?'var(--good)':'var(--danger)'}">${a.direction==='in'?'+':'-'}${money(a.amount)}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="kpis">${balances.map(b=>`<div class="kpi"><div class="label">${b.m} Account Fluidity</div><div class="value">${money(b.bal)}</div></div>`).join('')}</div>
+  <div class="toolbar"><div></div><button class="btn copper" onclick="openAccountEntry()">+ Manually Force Account Entry Ledger</button></div>
+  <div class="card"><table><thead><tr><th>Date</th><th>Method Box</th><th>Description</th><th>Amount</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan=4 class="emptyState">No transactions yet.</td></tr>'}</tbody></table></div>`;
+}
+function openAccountEntry(){
+  openModal(`<div class="closeRow"><h3>New Transaction</h3><span class="x" onclick="closeModal()">✕</span></div>
+  <div class="field"><label>Method</label><select id="accMethod"><option>Cash</option><option>bKash</option><option>Rocket</option><option>Nagad</option><option>Bank</option></select></div>
+  <div class="field"><label>Direction</label><select id="accDir"><option value="in">Money In</option><option value="out">Money Out</option></select></div>
+  <div class="field"><label>Description</label><input id="accDesc"></div>
+  <div class="field"><label>Amount</label><input id="accAmt" type="number"></div>
+  <button class="btn copper" onclick="saveAccountEntry()">Save</button>`);
+}
+function saveAccountEntry(){
+  DB.accounts.push({id:nextId(), method:document.getElementById('accMethod').value, date:todayISO(), desc:document.getElementById('accDesc').value, amount:Number(document.getElementById('accAmt').value||0), direction:document.getElementById('accDir').value}); closeModal(); goto('accounts');
+}
+
+/* ============================================================
+   WARRANTY CLAIM (lookup by invoice number)
+   ============================================================ */
+function page_warranty(){
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>Find Warranty by Invoice Number</h3>
+    <div class="rowline"><input id="warInvoice" placeholder="Enter invoice number (e.g. INV-1001)" style="flex:1"><button class="btn copper" onclick="lookupWarranty()">Search</button></div>
+    <div id="warResult"></div>
+  </div>`;
+}
+function lookupWarranty(){
+  const inv = document.getElementById('warInvoice').value.trim();
+  const s = DB.sales.find(x=>x.invoiceNo===inv);
+  const box = document.getElementById('warResult');
+  if(!s){ box.innerHTML = '<p class="muted">No sale found for this invoice number.</p>'; return; }
+  let rows = s.items.map(it=>{
+    if(!it.productId) return `<tr><td>Workshop Labor</td><td>Service Line Item</td><td>No physical product matrix coverage</td></tr>`;
+    const prod = DB.products.find(p=>p.id===it.productId);
+    let status = 'No warranty on this product';
+    if(prod && prod.warrantyValue>0){
+      const saleDate = new Date(s.date); let expiry = new Date(saleDate); if(prod.warrantyUnit==='days') expiry.setDate(expiry.getDate()+prod.warrantyValue); if(prod.warrantyUnit==='months') expiry.setMonth(expiry.getMonth()+prod.warrantyValue); if(prod.warrantyUnit==='years') expiry.setFullYear(expiry.getFullYear()+prod.warrantyValue); const active = expiry >= new Date(); status = `${active?'✅ Active':'❌ Expired'} — valid until ${expiry.toISOString().slice(0,10)} (${prod.warrantyValue} ${prod.warrantyUnit})`;
+    }
+    return `<tr><td>${it.desc}</td><td>Product Unit</td><td>${status}</td></tr>`;
+  }).join('');
+  box.innerHTML = `<p><b>Customer:</b> ${s.customer} &nbsp; <b>Date:</b> ${s.date}</p><table><thead><tr><th>Description Element</th><th>Domain</th><th>Warranty Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ============================================================
+   PREMIUM CARE (lookup by invoice)
+   ============================================================ */
+function page_premium(){
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>Premium Care Lookup</h3>
+    <div class="rowline"><input id="pcInvoice" placeholder="Enter invoice number" style="flex:1"><button class="btn copper" onclick="lookupPremium()">Search</button></div>
+    <div id="pcResult"></div>
+  </div>
+  <div class="card"><h3>Registered Premium Care Customers</h3>
+    <button class="btn ghost" onclick="openPremiumRegister()">+ Register Invoice for Premium Care</button>
+    <table style="margin-top:10px"><thead><tr><th>Invoice</th><th>Customer</th><th>Benefit Notes</th></tr></thead>
+    <tbody>${DB.premiumCare.map(p=>`<tr><td>${p.invoiceNo}</td><td>${p.customer}</td><td>${p.notes}</td></tr>`).join('') || '<tr><td colspan=3 class="emptyState">None registered yet.</td></tr>'}</tbody></table>
+  </div>`;
+}
+function lookupPremium(){
+  const inv = document.getElementById('pcInvoice').value.trim(); const pc = DB.premiumCare.find(p=>p.invoiceNo===inv); document.getElementById('pcResult').innerHTML = pc ? `<p>✅ <b>${pc.customer}</b> is a Premium Care customer.<br>Benefits: ${pc.notes}</p>` : '<p class="muted">Not a Premium Care customer.</p>';
+}
+function openPremiumRegister(){
+  openModal(`<div class="closeRow"><h3>Register Premium Care</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Invoice Number</label><input id="pcInv"></div><div class="field"><label>Customer Name</label><input id="pcCust"></div><div class="field"><label>Benefit Notes (extra warranty / discount)</label><textarea id="pcNotes"></textarea></div><button class="btn copper" onclick="savePremium()">Save</button>`);
+}
+function savePremium(){
+  DB.premiumCare.push({id:nextId(), invoiceNo:document.getElementById('pcInv').value, customer:document.getElementById('pcCust').value, notes:document.getElementById('pcNotes').value}); closeModal(); goto('premium');
+}
+
+/* ============================================================
+   CUSTOMER INFO
+   ============================================================ */
+function page_customers(){
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>Find Customer</h3>
+    <div class="rowline"><input id="custQuery" placeholder="Enter phone number or invoice number" style="flex:1"><button class="btn copper" onclick="lookupCustomer()">Search</button></div>
+    <div id="custResult"></div>
+  </div>
+  <div class="card"><h3>All Customers</h3><table><thead><tr><th>Name</th><th>Phone</th><th># Purchases</th></tr></thead>
+  <tbody>${DB.customers.map(c=>`<tr><td>${c.name}</td><td>${c.phone}</td><td>${DB.sales.filter(s=>s.phone===c.phone).length}</td></tr>`).join('') || '<tr><td colspan=3 class="emptyState">No customers yet.</td></tr>'}</tbody></table></div>`;
+}
+function lookupCustomer(){
+  const q = document.getElementById('custQuery').value.trim(); const sales = DB.sales.filter(s=>s.phone===q || s.invoiceNo===q); const box = document.getElementById('custResult'); if(sales.length===0){ box.innerHTML = '<p class="muted">No records found.</p>'; return; }
+  box.innerHTML = `<table><thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Due</th><th>Status</th></tr></thead><tbody>${sales.map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${money(s.total)}</td><td>${money(s.due)}</td><td><span class="pill ${s.status}">${s.status}</span></td></tr>`).join('')}</tbody></table>`;
+}
+
+/* ============================================================
+   DEALERSHIP MANAGEMENT (B2B)
+   ============================================================ */
+function page_dealers(){
+  let rows = DB.dealers.map(d=>`<tr><td>${d.name}</td><td>${d.phone}</td><td>${money(d.due)}</td><td>${money(d.advance)}</td><td><button class="btn small ghost" onclick="adjustDealer(${d.id},'due')">Add Due</button> <button class="btn small ghost" onclick="adjustDealer(${d.id},'advance')">Add Advance</button> <button class="btn small danger" onclick="DB.dealers=DB.dealers.filter(x=>x.id!==${d.id});goto('dealers')">Delete</button></td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><div></div><button class="btn copper" onclick="openDealerForm()">+ Add Dealer / B2B Client</button></div><div class="card"><table><thead><tr><th>Name</th><th>Phone</th><th>Due</th><th>Advance</th><th>Actions</th></tr></thead><tbody>${rows || '<tr><td colspan=5 class="emptyState">No dealers yet.</td></tr>'}</tbody></table></div>`;
+}
+function openDealerForm(){
+  openModal(`<div class="closeRow"><h3>Add Dealer</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Business/Shop Name</label><input id="dName"></div><div class="field"><label>Phone</label><input id="dPhone"></div><button class="btn copper" onclick="saveDealer()">Save</button>`);
+}
+function saveDealer(){
+  DB.dealers.push({id:nextId(), name:document.getElementById('dName').value, phone:document.getElementById('dPhone').value, due:0, advance:0}); closeModal(); goto('dealers');
+}
+function adjustDealer(id, field){
+  const amt = Number(prompt('Enter amount to add to '+field+':')); if(!amt) return; const d = DB.dealers.find(x=>x.id===id); d[field]+=amt; goto('dealers');
+}
+
+/* ============================================================
+   FEATURE 4: STAFF MANAGEMENT MODULE (Payroll & Interactive Absentee System)
+   ============================================================ */
+function page_staff(){
+  let rows = DB.staff.map(s=>{
+    const presentDays = s.attendance.filter(a=>a.status==='present').length;
+    const absentDays = s.attendance.filter(a=>a.status==='absent').length;
+    
+    // Default payroll calculation view fallback context
+    const netSalaryDue = (s.salaryIncome || s.salary) + (s.bonus || 0) + (s.tiffinAllowance || 0) - (s.advance || 0) - (s.salaryDeduction || 0);
+
+    return `<tr>
+      <td><b>${s.name}</b></td>
+      <td>${s.role}</td>
+      <td>${money(s.salary)}</td>
+      <td>
+        Income: ${money(s.salaryIncome || s.salary)}<br>
+        Bonus: ${money(s.bonus || 0)}<br>
+        Tiffin Allowance: ${money(s.tiffinAllowance || 0)}
+      </td>
+      <td style="color:var(--danger)">
+        Deductions: ${money(s.salaryDeduction || 0)}<br>
+        Advance Drawn: ${money(s.advance || 0)}
+      </td>
+      <td><b>${money(Math.max(0, netSalaryDue))}</b></td>
+      <td>
+        <span class="pill paid">P: ${presentDays} days</span><br>
+        <span class="pill due">A: ${absentDays} days</span>
+      </td>
+      <td>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <button class="btn small ghost" onclick="markStaffPresenceToggle(${s.id}, 'present')">✓ Mark Present</button>
+          <button class="btn small danger" style="padding: 2px 5px;" onclick="markStaffPresenceToggle(${s.id}, 'absent')">⚠ Mark Absent</button>
+          <button class="btn small copper" onclick="openPayrollEditModal(${s.id})">⚙ Edit Payroll Figures</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar">
+    <p class="muted">Manage corporate work staff, salary adjustments, monthly tiffin computations, and real-time absence tracking variables.</p>
+    <button class="btn copper" onclick="openStaffForm()">+ Enroll New Staff Member</button>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Staff Name</th>
+          <th>Role</th>
+          <th>Base Base Salary</th>
+          <th>Earnings Matrix</th>
+          <th>Deductions Ledger</th>
+          <th>Calculated Net Due</th>
+          <th>Attendance Tracker</th>
+          <th>System Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan=8 class="emptyState">No staff members enrolled.</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+function openPayrollEditModal(id) {
+  const s = DB.staff.find(x=>x.id===id);
+  if(!s) return;
+  
+  openModal(`
+    <div class="closeRow"><h3>Modify Payroll Variables — ${s.name}</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div class="grid cols-2">
+      <div class="field"><label>Advanced Salary Drawn (৳)</label><input type="number" id="epAdvance" value="${s.advance || 0}"></div>
+      <div class="field"><label>Salary Income Base Earned (৳)</label><input type="number" id="epIncome" value="${s.salaryIncome || s.salary}"></div>
+      <div class="field"><label>Salary Deduction (৳)</label><input type="number" id="epDeduction" value="${s.salaryDeduction || 0}"></div>
+      <div class="field"><label>Disbursed Bonus (৳)</label><input type="number" id="epBonus" value="${s.bonus || 0}"></div>
+      <div class="field"><label>Daily Tiffin Allowance Accumulation (৳)</label><input type="number" id="epTiffin" value="${s.tiffinAllowance || 0}"></div>
+    </div>
+    <button class="btn copper" style="width:100%; margin-top:10px;" onclick="commitPayrollVariables(${id})">Save Changes to Staff Profile</button>
+  `);
+}
+
+function commitPayrollVariables(id) {
+  const s = DB.staff.find(x=>x.id===id);
+  if(!s) return;
+  
+  s.advance = Number(document.getElementById('epAdvance').value || 0);
+  s.salaryIncome = Number(document.getElementById('epIncome').value || 0);
+  s.salaryDeduction = Number(document.getElementById('epDeduction').value || 0);
+  s.bonus = Number(document.getElementById('epBonus').value || 0);
+  s.tiffinAllowance = Number(document.getElementById('epTiffin').value || 0);
+  
+  saveDB();
+  closeModal();
+  page_staff();
+}
+
+function markStaffPresenceToggle(id, status) {
+  const s = DB.staff.find(x=>x.id===id);
+  if(!s) return;
+  s.attendance.push({ date: todayISO(), status: status });
+  alert(`Marked ${s.name} as ${status} for today (${todayISO()}).`);
+  saveDB();
+  page_staff();
+}
+
+function openStaffForm(){
+  openModal(`<div class="closeRow"><h3>Add Staff</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Name</label><input id="sName"></div><div class="field"><label>Role</label><input id="sRole"></div><div class="field"><label>Monthly Salary</label><input id="sSalary" type="number"></div><button class="btn copper" onclick="saveStaff()">Save</button>`);
+}
+function saveStaff(){
+  DB.staff.push({id:nextId(), name:document.getElementById('sName').value, role:document.getElementById('sRole').value, salary:Number(document.getElementById('sSalary').value||0), advance:0, salaryIncome: Number(document.getElementById('sSalary').value||0), salaryDeduction:0, bonus:0, tiffinAllowance:0, attendance:[]}); closeModal(); goto('staff');
+}
+
+/* ============================================================
+   EXPENSES
+   ============================================================ */
+function page_expenses(){
+  let rows = DB.expenses.slice().reverse().map(e=>`<tr><td>${e.date}</td><td>${e.desc}</td><td>${money(e.amount)}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><div class="badge">Total: ${money(DB.expenses.reduce((s,e)=>s+e.amount,0))}</div><button class="btn copper" onclick="openExpenseForm()">+ Add Expense</button></div><div class="card"><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead><tbody>${rows || '<tr><td colspan=3 class="emptyState">No expenses recorded.</td></tr>'}</tbody></table></div>`;
+}
+function openExpenseForm(){
+  openModal(`<div class="closeRow"><h3>Add Expense</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Description</label><input id="eDesc"></div><div class="field"><label>Amount</label><input id="eAmt" type="number"></div><button class="btn copper" onclick="saveExpense()">Save</button>`);
+}
+function saveExpense(){
+  const amt = Number(document.getElementById('eAmt').value||0); DB.expenses.push({id:nextId(), date:todayISO(), desc:document.getElementById('eDesc').value, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Expense: '+document.getElementById('eDesc').value, amount:amt, direction:'out'}); closeModal(); goto('expenses');
+}
+
+/* ============================================================
+   EXTRA INCOME
+   ============================================================ */
+function page_extraincome(){
+  let rows = DB.extraIncome.slice().reverse().map(e=>`<tr><td>${e.date}</td><td>${e.item}</td><td>${e.qty}</td><td>${money(e.amount)}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><div class="badge">Total: ${money(DB.extraIncome.reduce((s,e)=>s+e.amount,0))}</div><button class="btn copper" onclick="openExtraForm()">+ Add Entry</button></div><div class="card"><table><thead><tr><th>Date</th><th>Item (e.g. scrap iron/copper)</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows || '<tr><td colspan=4 class="emptyState">No extra income recorded.</td></tr>'}</tbody></table></div>`;
+}
+function openExtraForm(){
+  openModal(`<div class="closeRow"><h3>Add Extra Income</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Item</label><input id="xItem" placeholder="e.g. Scrap Copper, Waste Iron"></div><div class="field"><label>Quantity</label><input id="xQty"></div><div class="field"><label>Amount Received</label><input id="xAmt" type="number"></div><button class="btn copper" onclick="saveExtra()">Save</button>`);
+}
+function saveExtra(){
+  const amt = Number(document.getElementById('xAmt').value||0); DB.extraIncome.push({id:nextId(), date:todayISO(), item:document.getElementById('xItem').value, qty:document.getElementById('xQty').value, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Extra income: '+document.getElementById('xItem').value, amount:amt, direction:'in'}); closeModal(); goto('extraincome');
+}
+
+/* ============================================================
+   REPAIRING WORKSHOP COIL WINDING LOG LIST
+   ============================================================ */
+function page_repairs(){
+  let rows = DB.sales.filter(s=>s.isRepairInvoice).map(s=>`
+    <tr>
+      <td>${s.invoiceNo}</td>
+      <td>${s.date}</td>
+      <td>${s.customer}</td>
+      <td>${s.items.map(i=>i.desc).join('; ')}</td>
+      <td>${money(s.total)}</td>
+      <td><span class="pill paid">Settled Order</span></td>
+    </tr>`).join('');
+    
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar">
+    <p class="muted">Workshop Repair orders are processed natively inside the main point-of-sale screen terminal interface.</p>
+    <button class="btn copper" onclick="setSalesType('repair'); goto('quicksell');">Create Workshop Repair Ticket</button>
+  </div>
+  <div class="card">
+    <h3>Active / Historic Repair Invoices</h3>
+    <table>
+      <thead><tr><th>Invoice No</th><th>Date</th><th>Customer Name</th><th>Description / Repair Breakdown</th><th>Total Valuation</th><th>Status</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan=6 class="emptyState">No repair invoices logged via Quick Sell panel yet.</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+/* ============================================================
+   IMPORT STATEMENT SYSTEM
+   ============================================================ */
+function page_imports(){
+  let rows = DB.imports.slice().reverse().map(i=>`<tr><td>${i.date}</td><td>${i.billOfLading}</td><td>${i.supplier}</td><td>${money(i.value)}</td><td>${i.notes||'-'}</td><td><button class="btn small ghost" onclick="downloadImportPDF(${i.id})">⬇ PDF</button></td></tr>`).join(''); document.getElementById('pageContent').innerHTML = ` <div class="toolbar"><div></div><button class="btn copper" onclick="openImportForm()">+ Add Import Record</button></div><div class="card"><table><thead><tr><th>Date</th><th>Bill of Lading</th><th>Supplier</th><th>Value</th><th>Notes</th><th>Actions</th></tr></thead><tbody>${rows || '<tr><td colspan=6 class="emptyState">No import records yet.</td></tr>'}</tbody></table></div>`;
+}
+function openImportForm(){
+  openModal(`<div class="closeRow"><h3>Add Import Record</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Bill of Lading Number</label><input id="imBL"></div><div class="field"><label>Supplier / Country</label><input id="imSupplier"></div><div class="field"><label>Shipment Value</label><input id="imValue" type="number"></div><div class="field"><label>Notes</label><textarea id="imNotes"></textarea></div><button class="btn copper" onclick="saveImport()">Save</button>`);
+}
+function saveImport(){
+  DB.imports.push({id:nextId(), date:todayISO(), billOfLading:document.getElementById('imBL').value, supplier:document.getElementById('imSupplier').value, value:Number(document.getElementById('imValue').value||0), notes:document.getElementById('imNotes').value}); closeModal(); goto('imports');
+}
+function downloadImportPDF(id){
+  const i = DB.imports.find(x=>x.id===id); buildPrintable('Import Statement — '+i.billOfLading, `<table><tr><th>Date</th><td>${i.date}</td></tr><tr><th>Bill of Lading</th><td>${i.billOfLading}</td></tr><tr><th>Supplier</th><td>${i.supplier}</td></tr><tr><th>Value</th><td>${money(i.value)}</td></tr><tr><th>Notes</th><td>${i.notes||'-'}</td></tr></table>`);
+}
+
+/* ============================================================
+   FEATURE 5: ACCOUNTING SUITE (The 7 Pillars of Ledgers)
+   ============================================================ */
+let currentAccountingTab = 'cashbook';
+
+function page_reports(){
+  document.getElementById('pageContent').innerHTML = `
+    <div class="tabs no-print">
+      <div class="tab ${currentAccountingTab==='cashbook'?'active':''}" onclick="switchAccountingTab('cashbook')">1. Cash Book</div>
+      <div class="tab ${currentAccountingTab==='bankbook'?'active':''}" onclick="switchAccountingTab('bankbook')">2. Bank Book</div>
+      <div class="tab ${currentAccountingTab==='customerdue'?'active':''}" onclick="switchAccountingTab('customerdue')">3. Customer Due Book</div>
+      <div class="tab ${currentAccountingTab==='supplierdue'?'active':''}" onclick="switchAccountingTab('supplierdue')">4. Supplier Due Book</div>
+      <div class="tab ${currentAccountingTab==='income'?'active':''}" onclick="switchAccountingTab('income')">5. Income Ledger</div>
+      <div class="tab ${currentAccountingTab==='expenses'?'active':''}" onclick="switchAccountingTab('expenses')">6. Expenses Ledger</div>
+      <div class="tab ${currentAccountingTab==='profitloss'?'active':''}" onclick="switchAccountingTab('profitloss')">7. Profit & Loss Statement</div>
+    </div>
+    <div id="accountingReportContent"></div>
+  `;
+  switchAccountingTab(currentAccountingTab);
+}
+
+function switchAccountingTab(tabKey) {
+  currentAccountingTab = tabKey;
+  // Update internal highlighting
+  document.querySelectorAll('.tabs .tab').forEach((el, idx) => {
+    el.classList.remove('active');
+  });
+  
+  const container = document.getElementById('accountingReportContent');
+  if(!container) return;
+
+  switch(tabKey) {
+    case 'cashbook':
+      renderCashBook(container);
+      break;
+    case 'bankbook':
+      renderBankBook(container);
+      break;
+    case 'customerdue':
+      renderCustomerDueBook(container);
+      break;
+    case 'supplierdue':
+      renderSupplierDueBook(container);
+      break;
+    case 'income':
+      renderIncomeLedger(container);
+      break;
+    case 'expenses':
+      renderExpensesLedger(container);
+      break;
+    case 'profitloss':
+      renderProfitLossStatement(container);
+      break;
+  }
+}
+
+// 1. CASH BOOK
+function renderCashBook(target) {
+  const cashTrans = DB.accounts.filter(a => a.method === 'Cash');
+  let rows = cashTrans.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td style="color:${t.direction==='in'?'green':'red'}">${t.direction==='in'?'+':'-'}${money(t.amount)}</td></tr>`).join('');
+  const netCash = cashTrans.reduce((s,t) => s + (t.direction==='in'?t.amount:-t.amount), 0);
+  
+  target.innerHTML = `
+    <div class="card">
+      <h3>Cash Account Ledger Ledger (In-Hand Cash Flow)</h3>
+      <div class="kpi" style="max-width: 300px; margin-bottom: 15px;"><div class="label">Net Fluid Cash Balance</div><div class="value">${money(netCash)}</div></div>
+      <table><thead><tr><th>Date</th><th>Description Reference</th><th>Flow Change</th></tr></thead><tbody>${rows || '<tr><td colspan=3>No cash transactions documented.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+// 2. BANK BOOK
+function renderBankBook(target) {
+  const bankTrans = DB.accounts.filter(a => ['bKash','Rocket','Nagad','Bank'].includes(a.method));
+  let rows = bankTrans.map(t => `<tr><td>${t.date}</td><td><b>${t.method}</b></td><td>${t.desc}</td><td style="color:${t.direction==='in'?'green':'red'}">${t.direction==='in'?'+':'-'}${money(t.amount)}</td></tr>`).join('');
+  const netBank = bankTrans.reduce((s,t) => s + (t.direction==='in'?t.amount:-t.amount), 0);
+  
+  target.innerHTML = `
+    <div class="card">
+      <h3>Bank Book & Digital Wallet Accounts</h3>
+      <div class="kpi c3" style="max-width: 300px; margin-bottom: 15px;"><div class="label">Net Bank & MFS Assets</div><div class="value">${money(netBank)}</div></div>
+      <table><thead><tr><th>Date</th><th>Account Node</th><th>Description Reference</th><th>Flow Change</th></tr></thead><tbody>${rows || '<tr><td colspan=4>No banking transactions documented.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+// 3. CUSTOMER DUE
+function renderCustomerDueBook(target) {
+  const liveDues = DB.sales.filter(s=>s.due > 0).map(s=>({ customer: s.customer, phone: s.phone||'N/A', ref: s.invoiceNo, amt: s.due, date: s.date }));
+  const priorDues = DB.historicalDues.filter(hd=>hd.status==='Unpaid').map(hd=>({ customer: 'Manual Prior Entry', phone: hd.phone||'N/A', ref: hd.invoiceNo, amt: hd.amount, date: hd.dueDate }));
+  const combined = [...liveDues, ...priorDues];
+  const sum = combined.reduce((s,x)=>s+x.amt,0);
+
+  let rows = combined.map(c=>`<tr><td>${c.date}</td><td>${c.customer} (${c.phone})</td><td>${c.ref}</td><td>${money(c.amt)}</td></tr>`).join('');
+  target.innerHTML = `
+    <div class="card">
+      <h3>Customer Dues Account Receivable Register</h3>
+      <div class="kpi c2" style="max-width: 300px; margin-bottom: 15px;"><div class="label">Total Outstanding Market Receivables</div><div class="value">${money(sum)}</div></div>
+      <table><thead><tr><th>Date Originated</th><th>Client Profile</th><th>Reference</th><th>Balance Due</th></tr></thead><tbody>${rows || '<tr><td colspan=4>Clear slate! No active system customer debts.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+// 4. SUPPLIER DUE
+function renderSupplierDueBook(target) {
+  // Extract credit procurement actions from purchases array
+  const creditPurchases = DB.purchases.filter(p => p.status === 'due');
+  const sum = creditPurchases.reduce((s,p)=>s+p.total,0);
+  let rows = creditPurchases.map(p => `<tr><td>${p.date}</td><td>${p.supplier}</td><td>Ref: PROC-${p.id}</td><td>${money(p.total)}</td></tr>`).join('');
+
+  target.innerHTML = `
+    <div class="card">
+      <h3>Supplier Dues & B2B Trade Accounts Payable</h3>
+      <div class="kpi c4" style="max-width: 300px; margin-bottom: 15px;"><div class="label">Total Outstanding Vendor Payable Debts</div><div class="value">${money(sum)}</div></div>
+      <table><thead><tr><th>Date Logged</th><th>Supplier Vendor Profile</th><th>Reference Node</th><th>Debt Value</th></tr></thead><tbody>${rows || '<tr><td colspan=4>No outstanding procurement invoices payable.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+// 5. INCOME
+function renderIncomeLedger(target) {
+  const salesRevenue = DB.sales.reduce((s,x)=>s+x.total,0);
+  const extraRev = DB.extraIncome.reduce((s,x)=>s+x.amount,0);
+  
+  target.innerHTML = `
+    <div class="card">
+      <h3>Operational Income Stream Matrix</h3>
+      <div class="grid cols-3" style="margin-bottom: 15px;">
+        <div class="kpi"><div class="label">Primary Invoicing (Sales/Repairs)</div><div class="value">${money(salesRevenue)}</div></div>
+        <div class="kpi c3"><div class="label">Extra Scrap Waste Income</div><div class="value">${money(extraRev)}</div></div>
+        <div class="kpi c2"><div class="label">Gross Combined Yield Revenue</div><div class="value">${money(salesRevenue+extraRev)}</div></div>
+      </div>
+      <h4>Recent Billing Activities Breakdown</h4>
+      <table><thead><tr><th>Invoice No</th><th>Date</th><th>Client</th><th>Total Valuation</th></tr></thead>
+      <tbody>${DB.sales.slice(-5).reverse().map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.customer}</td><td>${money(s.total)}</td></tr>`).join('')}</tbody></table>
+    </div>`;
+}
+
+// 6. EXPENSES LEDGER
+function renderExpensesLedger(target) {
+  const structuralExpenses = DB.expenses.reduce((s,e)=>s+e.amount,0);
+  const stockProcurementOut = DB.purchases.filter(p=>p.status==='paid').reduce((s,p)=>s+p.total,0);
+  
+  // Aggregate staff payouts variables
+  const staffPayrollOut = DB.staff.reduce((s,st)=> {
+    const paidEarned = (st.salaryIncome || st.salary) + (st.bonus || 0) + (st.tiffinAllowance || 0);
+    return s + paidEarned;
+  }, 0);
+
+  target.innerHTML = `
+    <div class="card">
+      <h3>Operational General Expenses Ledger</h3>
+      <div class="grid cols-4" style="margin-bottom: 15px;">
+        <div class="kpi c4"><div class="label">General Overhead Tickets</div><div class="value">${money(structuralExpenses)}</div></div>
+        <div class="kpi c2"><div class="label">Cash Product Sourcing Bills</div><div class="value">${money(stockProcurementOut)}</div></div>
+        <div class="kpi c4"><div class="label">Staff Compensation Assets</div><div class="value">${money(staffPayrollOut)}</div></div>
+        <div class="kpi c2"><div class="label">Gross Combined Outflows</div><div class="value">${money(structuralExpenses + stockProcurementOut + staffPayrollOut)}</div></div>
+      </div>
+    </div>`;
+}
+
+// 7. PROFIT & LOSS STATEMENT
+function renderProfitLossStatement(target) {
+  const grossIncome = DB.sales.reduce((s,x)=>s+x.total,0) + DB.extraIncome.reduce((s,x)=>s+x.amount,0);
+  
+  // Calculate true inventory COGS cost factors
+  const approximateCogsCost = DB.sales.reduce((s,x)=> s + x.items.reduce((a,it)=>{
+    if(!it.productId) return a; // No product cost factor logic for raw workshop labor rows
+    const p = DB.products.find(pp=>pp.id===it.productId);
+    return a + (p ? p.buyPrice * it.qty : 0);
+  },0),0);
+
+  const overheadExpenses = DB.expenses.reduce((s,e)=>s+e.amount,0);
+  const staffCompensation = DB.staff.reduce((s,st)=> s + ((st.salaryIncome || st.salary) + (st.bonus || 0) + (st.tiffinAllowance || 0)), 0);
+
+  const totalDeductionsMatrix = approximateCogsCost + overheadExpenses + staffCompensation;
+  const netBottomLineProfit = grossIncome - totalDeductionsMatrix;
+
+  target.innerHTML = `
+    <div class="card">
+      <h3>Comprehensive Corporate Profit & Loss Balance Sheet</h3>
+      <table style="margin-top:15px; font-size:16px;">
+        <tr style="background:#eee; font-weight:bold;"><td>1. Aggregate Inbound Income Streams</td><td>Value BDT</td></tr>
+        <tr><td>Store Checkout Sales & Workshop Repair Revenue Receipts</td><td>${money(DB.sales.reduce((s,x)=>s+x.total,0))}</td></tr>
+        <tr><td>Alternative Secondary Asset Liquidation (Scrap Copper Wire/Iron Yards)</td><td>${money(DB.extraIncome.reduce((s,x)=>s+x.amount,0))}</td></tr>
+        <tr style="font-weight:bold; color:var(--teal)"><td>Gross Aggregate Revenue Yield (A)</td><td>${money(grossIncome)}</td></tr>
+        
+        <tr style="background:#eee; font-weight:bold;"><td>2. Operational Costs & Outflow Debits</td><td></td></tr>
+        <tr><td>Calculated Inventory Cost of Goods Sold (COGS purchase values)</td><td>-${money(approximateCogsCost)}</td></tr>
+        <tr><td>General Ledger Expense Vouchers (Rent, utility bills, maintenance lines)</td><td>-${money(overheadExpenses)}</td></tr>
+        <tr><td>Staff Human Capital Compensations (Base Salaries + Bonuses + Tiffin Allowances)</td><td>-${money(staffCompensation)}</td></tr>
+        <tr style="font-weight:bold; color:var(--danger)"><td>Total Value Accumulation of Operational Expenditures (B)</td><td>-${money(totalDeductionsMatrix)}</td></tr>
+        
+        <tr style="background:var(--navy); color:#fff; font-weight:bold; font-size:18px;">
+          <td>NET ESTIMATED BOTTOM-LINE OPERATIONAL PROFIT (A - B)</td>
+          <td>${money(netBottomLineProfit)}</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+/* ============================================================
+   QUICK NOTES
+   ============================================================ */
+function page_notes(){
+  let rows = DB.notes.slice().reverse().map(n=>`<div class="card"><div class="muted">${n.date}</div><p>${n.text}</p><button class="btn small danger" onclick="DB.notes=DB.notes.filter(x=>x.id!==${n.id});goto('notes')">Delete</button></div>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card"><div class="field"><label>New Note</label><textarea id="noteText" rows="3"></textarea></div><button class="btn copper" onclick="addNote()">+ Add Note</button></div>
+  ${rows || '<div class="emptyState">No notes yet.</div>'}`;
+}
+function addNote(){
+  const t = document.getElementById('noteText').value.trim(); if(!t) return; DB.notes.push({id:nextId(), date: new Date().toLocaleString(), text:t}); goto('notes');
+}
+
+/* ============================================================
+   SMS & INVOICE TEMPLATE SETTINGS
+   ============================================================ */
+function page_sms(){
+  const st = DB.settings;
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>SMS / WhatsApp Templates</h3>
+    <p class="muted">Use placeholders: {customer}, {invoice}, {total}, {paid}, {due}</p>
+    <div class="field"><label>Due Reminder Template</label><textarea id="smsDue" rows="3">${st.smsDueTemplate}</textarea></div>
+    <div class="field"><label>Invoice Confirmation Template</label><textarea id="smsInv" rows="3">${st.smsInvoiceTemplate}</textarea></div>
+    <button class="btn copper" onclick="saveSmsTemplates()">Save Templates</button>
+  </div>
+  <div class="card">
+    <h3>Invoice Template Design</h3>
+    <div class="grid cols-2">
+      <div class="field"><label>Company Name</label><input id="tplName" value="${st.companyName}"></div>
+      <div class="field"><label>Proprietor Name</label><input id="tplProp" value="${st.proprietor}"></div>
+      <div class="field"><label>Phone</label><input id="tplPhone" value="${st.phone}"></div>
+      <div class="field"><label>Address</label><input id="tplAddress" value="${st.address}"></div>
+    </div>
+    <div class="field"><label>Greeting / Thank-you Quote</label><textarea id="tplGreeting">${st.greeting}</textarea></div>
+    <div class="field"><label>Company Logo (upload image)</label><input type="file" accept="image/*" onchange="uploadImg(this,'logo')">${st.logo?'<div class="muted">Logo set ✓</div>':''}</div>
+    <div class="field"><label>Authorized Signature (upload image)</label><input type="file" accept="image/*" onchange="uploadImg(this,'signature')">${st.signature?'<div class="muted">Signature set ✓</div>':''}</div>
+    <button class="btn copper" onclick="saveTemplateSettings()">Save Template Settings</button>
+  </div>`;
+}
+function uploadImg(input, field){
+  const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = e=>{ DB.settings[field] = e.target.result; alert((field==='logo'?'Logo':'Signature')+' uploaded.'); saveDB(); }; reader.readAsDataURL(file);
+}
+function saveSmsTemplates(){
+  DB.settings.smsDueTemplate = document.getElementById('smsDue').value; DB.settings.smsInvoiceTemplate = document.getElementById('smsInv').value; alert('Templates saved.'); saveDB();
+}
+function saveTemplateSettings(){
+  DB.settings.companyName = document.getElementById('tplName').value; DB.settings.proprietor = document.getElementById('tplProp').value; DB.settings.phone = document.getElementById('tplPhone').value; DB.settings.address = document.getElementById('tplAddress').value; DB.settings.greeting = document.getElementById('tplGreeting').value; alert('Invoice template updated.'); saveDB();
+}
+
+/* ============================================================
+   ADMIN MANAGEMENT 
+   ============================================================ */
+function page_admins(){
+  let rows = DB.admins.map(a=>`<tr><td>${a.username}</td><td>${a.role}</td><td>${a.isSuper?'⭐ Super Admin':''}</td><td><button class="btn small ghost" onclick="editAdmin(${a.id})">Edit</button> ${(!a.isSuper && session.user.isSuper) ? `<button class="btn small danger" onclick="deleteAdmin(${a.id})">Delete</button>` : ''}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><div class="muted">Only the Super Admin can delete other admins.</div><button class="btn copper" onclick="editAdmin(null)">+ Add Admin</button></div><div class="card"><table><thead><tr><th>Username</th><th>Role</th><th>Type</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function editAdmin(id){
+  const a = id ? DB.admins.find(x=>x.id===id) : {username:'',password:'',role:'Admin'}; openModal(`<div class="closeRow"><h3>${id?'Edit':'Add'} Admin</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Username</label><input id="adUser" value="${a.username}"></div><div class="field"><label>Password</label><input id="adPass" type="text" value="${a.password||''}"></div><div class="field"><label>Role Profile</label><select id="adRole"><option ${a.role==='Admin'?'selected':''}>Admin</option><option ${a.role==='Manager'?'selected':''}>Manager</option></select></div><button class="btn copper" onclick="saveAdmin(${id})">Save Admin Profile</button>`);
+}
+function saveAdmin(id){
+  const u = document.getElementById('adUser').value.trim(); const p = document.getElementById('adPass').value; const r = document.getElementById('adRole').value; if(!u || !p) return; if(id){ const target = DB.admins.find(x=>x.id===id); target.username=u; target.password=p; target.role=r; }else{ DB.admins.push({id:nextId(), username:u, password:p, role:r, isSuper:false}); }
+  closeModal(); goto('admins');
+}
+function deleteAdmin(id){ if(confirm('Delete this user?')){ DB.admins = DB.admins.filter(x=>x.id!==id); goto('admins'); } }
+
+
+/* ============================================================
+   DATABASE MANAGEMENT (EXPORT / IMPORT / SYNC)
+   ============================================================ */
+function page_settings() {
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>Database Backup & Restore</h3>
+    <p class="muted">Download a complete offline copy of your entire system data, or restore from a previously saved JSON file.</p>
+    <div class="section-actions" style="margin-top: 15px;">
+      <button class="btn copper" onclick="exportDatabase()">⬇ Download Full Backup (JSON)</button>
+      <button class="btn danger" onclick="triggerImport()">⬆ Restore Database File</button>
+      <input type="file" id="importFile" style="display:none" accept=".json" onchange="importDatabase(event)">
+    </div>
+  </div>
+  <div class="card">
+    <h3>Supabase Cloud Sync Status</h3>
+    <p><strong>Cloud URL:</strong> ${SUPABASE_URL}</p>
+    <p class="muted">Your data is configured to auto-save to the cloud every 8 seconds when changes are detected.</p>
+    <button class="btn ghost" onclick="saveDB()">Force Manual Sync Now</button>
+  </div>`;
+}
+
+function exportDatabase() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(DB));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "monzu_pos_backup_" + todayISO() + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function triggerImport() {
+    if(confirm("Warning: Importing a file will OVERWRITE all your current data. Are you sure?")) {
+        document.getElementById('importFile').click();
+    }
+}
+
+function importDatabase(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if(importedData && importedData.settings) { 
+                DB = importedData;
+                saveDB(); // Instantly sync new data to Supabase
+                alert("Database restored successfully!");
+                goto('dashboard');
+            } else {
+                alert("Invalid backup file. Make sure it is a valid Monzu POS export.");
+            }
+        } catch(err) {
+            alert("Error reading or parsing the file.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+window.onload = function() {
+  loadCloudDB();
+};
+</script>
+</body>
+</html>
