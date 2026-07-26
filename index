@@ -107,12 +107,50 @@ label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-wei
 .muted{color:var(--muted);font-size:12.5px;}
 .right-align{text-align:right;}
 .section-actions{display:flex;gap:8px;}
-.invoicePreview{background:#fff;border:1px solid var(--line);padding:26px;font-size:13px;}
-.invoicePreview .ihead{display:flex;justify-content:space-between;border-bottom:2px solid var(--navy);padding-bottom:12px;margin-bottom:12px;}
-.invoicePreview .ihead img{max-height:60px;}
-.invoicePreview table{margin:10px 0;}
-.invoicePreview .totals{margin-left:auto;width:260px;}
-.invoicePreview .totals div{display:flex;justify-content:space-between;padding:3px 0;}
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+.invoice-card{position:relative;width:100%;max-width:794px;margin:0 auto;background:#fff;overflow:hidden;padding:28px 26px;font-family:'Poppins',sans-serif;color:#111;border:1px solid var(--line);}
+.invoice-card .wave-bg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+.invoice-card .content{position:relative;z-index:1;}
+.invoice-card .invoice-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:28px;color:#1a2b6d;letter-spacing:1px;margin-bottom:14px;}
+.invoice-card .company-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:26px;letter-spacing:1px;text-align:center;color:#111;margin-bottom:22px;}
+.invoice-card .top-section{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:20px;flex-wrap:wrap;}
+.invoice-card .invoice-meta p{font-size:13.5px;color:#222;margin-bottom:4px;font-weight:500;}
+.invoice-card .customer-info{margin-top:18px;}
+.invoice-card .customer-info p{font-size:13.5px;color:#222;font-weight:500;margin-bottom:4px;}
+.invoice-card .business-info{text-align:right;}
+.invoice-card .business-info .logo-label{font-size:13px;color:#333;margin-bottom:2px;}
+.invoice-card .business-info .owner-name{font-family:'Poppins',sans-serif;font-size:19px;font-weight:600;color:#111;}
+.invoice-card .business-info .owner-title{font-size:13px;color:#333;margin-bottom:6px;}
+.invoice-card .business-info .phone{font-size:13px;color:#222;margin-bottom:8px;}
+.invoice-card .business-info .address-label{font-size:12.5px;font-weight:700;color:#111;}
+.invoice-card .business-info .address-line{font-size:12.5px;color:#222;}
+.invoice-card table{width:100%;border-collapse:collapse;margin-top:8px;}
+.invoice-card thead tr{background:#4f9fd6;}
+.invoice-card thead th{color:#fff;font-size:13px;font-weight:700;letter-spacing:0.5px;text-align:left;padding:10px 8px;}
+.invoice-card thead th.center{text-align:center;}
+.invoice-card thead th.right{text-align:right;}
+.invoice-card tbody td{padding:12px 8px;font-size:13.5px;color:#111;border-bottom:1px solid #111;}
+.invoice-card tbody td.center{text-align:center;}
+.invoice-card tbody td.right{text-align:right;}
+.invoice-card .totals{display:flex;justify-content:flex-end;margin-top:16px;}
+.invoice-card .totals table{width:300px;}
+.invoice-card .totals td{padding:4px 0;font-size:13.5px;color:#111;}
+.invoice-card .totals td.label{text-align:left;}
+.invoice-card .totals td.value{text-align:right;font-weight:500;}
+.invoice-card .totals .grand-total td{font-weight:700;font-size:15px;padding-top:8px;}
+.invoice-card .totals .small-label{font-size:11px;line-height:1.2;}
+.invoice-card .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;flex-wrap:wrap;gap:14px;}
+.invoice-card .quotes{font-size:13.5px;color:#222;font-style:italic;max-width:60%;}
+.invoice-card .signature{text-align:center;}
+.invoice-card .signature .line{width:200px;border-top:1px solid #111;margin-bottom:6px;}
+.invoice-card .signature .sig-name{font-family:'Poppins',sans-serif;font-weight:700;font-size:17px;color:#111;}
+.invoice-card .signature .sig-role{font-size:12px;color:#444;}
+.invoice-card [contenteditable="true"]{outline:none;border-radius:3px;transition:background .15s;}
+.invoice-card [contenteditable="true"]:hover{background:#fff8dc;}
+.invoice-card [contenteditable="true"]:focus{background:#fff3b0;}
+@media print{
+  .invoice-card [contenteditable="true"]:hover,.invoice-card [contenteditable="true"]:focus{background:transparent;}
+}
 .chartWrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
 .attRow{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);}
 @media print{
@@ -895,40 +933,114 @@ function submitPayment(id){
   closeModal(); goto('invoices');
 }
 
+function buildInvoiceCardHTML(opts){
+  const st = DB.settings;
+  const itemRows = opts.items.map((it,i)=>`
+    <tr>
+      <td contenteditable="true">${i+1}</td>
+      <td contenteditable="true">${it.desc}</td>
+      <td class="center" contenteditable="true">${money(it.price)}</td>
+      <td class="center" contenteditable="true">${it.qty}</td>
+      <td class="right" contenteditable="true">${money(it.amount)}</td>
+    </tr>`).join('');
+  const dueColor = opts.dueIsAdvance ? '#1a7a43' : '#b3261e';
+  const totalsRows = `
+    <tr><td class="label">SUB-TOTAL</td><td class="value" contenteditable="true">${money(opts.subtotal)}</td></tr>
+    ${opts.showDiscount ? `<tr><td class="label">DISCOUNT</td><td class="value" contenteditable="true">${money(opts.discount||0)}</td></tr>` : ''}
+    <tr class="grand-total"><td class="label">${opts.grandTotalLabel||'GRAND TOTAL'}</td><td class="value" contenteditable="true">${money(opts.grandTotal)}</td></tr>
+    ${opts.showPaid ? `<tr><td class="label small-label">PAID ACCOUNT${opts.paidMethod?` (${opts.paidMethod})`:''}</td><td class="value" contenteditable="true">${money(opts.paid||0)}</td></tr>` : ''}
+    <tr><td class="label" style="color:${dueColor};font-weight:700;">${opts.dueLabel}</td><td class="value" style="color:${dueColor};font-weight:700;" contenteditable="true">${money(Math.abs(opts.dueAmount))}</td></tr>
+  `;
+  return `
+  <div class="invoice-card" id="${opts.elementId}">
+    <svg class="wave-bg" viewBox="0 0 750 900" preserveAspectRatio="none">
+      <g fill="none" stroke="#bfe0f5" stroke-width="1.2" opacity="0.55">
+        <path d="M -50,320 C 150,250 250,400 500,650 S 750,850 900,780" />
+        <path d="M -50,350 C 150,280 260,430 510,660 S 750,870 910,800" />
+        <path d="M -50,380 C 150,310 270,460 520,670 S 750,890 920,820" />
+        <path d="M -50,410 C 150,340 280,490 530,680 S 750,910 930,840" />
+        <path d="M -50,440 C 150,370 290,520 540,690 S 750,930 940,860" />
+        <path d="M -50,470 C 150,400 300,550 550,700 S 750,950 950,880" />
+        <path d="M -50,500 C 150,430 310,570 560,710 S 750,970 960,900" />
+        <path d="M -50,530 C 150,460 320,590 570,715 S 750,985 970,915" />
+        <path d="M -50,560 C 150,490 330,610 580,720 S 750,995 980,930" />
+      </g>
+    </svg>
+    <div class="content">
+      <div class="invoice-title" contenteditable="true">${opts.invoiceType}</div>
+      <div class="company-name" contenteditable="true">${st.companyName||''}</div>
+      <div class="top-section">
+        <div class="invoice-meta">
+          <p>Invoice No : <span contenteditable="true">${opts.invoiceNo}</span></p>
+          <p>Date : <span contenteditable="true">${opts.date}</span></p>
+          <div class="customer-info">
+            <p>Customer Name : <span contenteditable="true">${opts.customerName||''}</span></p>
+            <p>${opts.customerLabel||'Address'} : <span contenteditable="true">${opts.customerAddress||'-'}</span></p>
+          </div>
+        </div>
+        <div class="business-info">
+          ${st.logo?`<img src="${st.logo}" style="max-height:50px;margin-bottom:6px;">`:`<div class="logo-label" contenteditable="true">${st.companyName||'BUSINESS NAME'}</div>`}
+          <div class="owner-name" contenteditable="true">${st.proprietor||''}</div>
+          <div class="owner-title" contenteditable="true">(Proprietor)</div>
+          <div class="phone" contenteditable="true">${st.phone||''}</div>
+          <div class="address-label">ADDRESS</div>
+          <div class="address-line" contenteditable="true">${st.address||''}</div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>${opts.productHeader||'MODEL &amp; DESCRIPTION'}</th>
+            <th class="center">PER PIECE PRICE</th>
+            <th class="center">QUANTITY</th>
+            <th class="right">AMOUNT</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      <div class="totals">
+        <table>${totalsRows}</table>
+      </div>
+      <div class="footer">
+        <div class="quotes" contenteditable="true">${st.greeting||''}</div>
+        <div class="signature">
+          ${st.signature?`<img src="${st.signature}" style="max-height:45px;margin-bottom:4px;">`:''}
+          <div class="line"></div>
+          <div class="sig-name">Authorized Signature</div>
+          <div class="sig-role">Owner or Manager</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function showInvoicePreview(id){
   const s = DB.sales.find(x=>x.id===id);
-  const st = DB.settings;
-  let itemRows = s.items.map((it,i)=>`<tr><td>${i+1}</td><td>${it.desc}</td><td>${money(it.price)}</td><td>${it.qty}</td><td>${money(it.qty*it.price)}</td></tr>`).join('');
-  const html = `
-  <div class="invoicePreview" id="invoicePrintArea">
-    <div class="ihead">
-      <div>${st.logo?`<img src="${st.logo}">`:''}<h2>${st.companyName}</h2><div class="muted">Proprietor: ${st.proprietor}<br>${st.address}<br>Phone: ${st.phone}</div></div>
-      <div style="text-align:right"><h3>${s.isRepairInvoice ? 'WORKSHOP REPAIR INVOICE' : 'SALES INVOICE'}</h3><div class="muted">No: ${s.invoiceNo}<br>Date: ${s.date}</div></div>
-    </div>
-    <p><b>Customer Name:</b> ${s.customer} &nbsp;&nbsp;&nbsp;&nbsp; <b>Phone / Contact:</b> ${s.phone||'-'}</p>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:50px;">SL</th>
-          <th>Description (Brand, Model, Repairing details, Spare parts specs)</th>
-          <th>Unit Price</th>
-          <th>Quantity</th>
-          <th>Amount (Rate × Quantity)</th>
-        </tr>
-      </thead>
-      <tbody>${itemRows}</tbody>
-    </table>
-    <div class="totals">
-      <div><span>Subtotal</span><span>${money(s.total+s.discount)}</span></div>
-      <div><span>Discount Drop</span><span>${money(s.discount)}</span></div>
-      <div><b>Grand Total</b><b>${money(s.total)}</b></div>
-      <div><span>Paid Account (${s.paymentMethod})</span><span>${money(s.paid)}</span></div>
-      <div><span style="color:var(--danger); font-weight:bold;">Due Balance</span><span style="color:var(--danger); font-weight:bold;">${money(s.due)}</span></div>
-    </div>
-    <p style="margin-top:20px;font-style:italic; border-top:1px dashed var(--line); padding-top:10px;">${st.greeting}</p>
-    ${st.signature?`<img src="${st.signature}" style="max-height:50px;margin-top:16px"><div class="muted">Authorized Manager Signature</div>`:''}
-  </div>`;
-  openModal(`<div class="closeRow"><h3>Printable Document Matrix View</h3><span class="x" onclick="closeModal()">✕</span></div>
+  const items = s.items.map(it=>({ desc: it.desc, price: it.price, qty: it.qty, amount: it.qty*it.price }));
+  const html = buildInvoiceCardHTML({
+    elementId: 'invoicePrintArea',
+    invoiceType: s.isRepairInvoice ? 'WORKSHOP REPAIR INVOICE' : 'SALES INVOICE',
+    invoiceNo: s.invoiceNo,
+    date: s.date,
+    customerName: s.customer,
+    customerLabel: 'Phone / Contact',
+    customerAddress: s.phone||'-',
+    items,
+    productHeader: 'DESCRIPTION (Brand, Model, Repair Details)',
+    subtotal: s.total+s.discount,
+    showDiscount: true,
+    discount: s.discount,
+    grandTotalLabel: 'GRAND TOTAL',
+    grandTotal: s.total,
+    showPaid: true,
+    paid: s.paid,
+    paidMethod: s.paymentMethod,
+    dueLabel: 'DUE BALANCE',
+    dueIsAdvance: false,
+    dueAmount: s.due
+  });
+  openModal(`<div class="closeRow no-print"><h3>Printable Invoice</h3><span class="x" onclick="closeModal()">✕</span></div>
   ${html}
   <div class="section-actions no-print" style="margin-top:14px">
     <button class="btn" onclick="printArea('invoicePrintArea','${s.invoiceNo}')">🖨 Print Invoice Terminal</button>
@@ -942,16 +1054,58 @@ function shareWhatsApp(id){
 }
 
 function printArea(elementId, title){
-  const content = document.getElementById(elementId).outerHTML;
+  const el = document.getElementById(elementId);
+  const content = el.outerHTML;
+  const isInvoiceCard = el.classList.contains('invoice-card');
   const w = window.open('', '_blank');
-  w.document.write(`<html><head><title>${title}</title><style>
+  const invoiceCardCss = `
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+    body{background:#eef0f3;font-family:'Poppins',sans-serif;padding:0;margin:0;}
+    .invoice-card{position:relative;width:210mm;min-height:297mm;margin:0 auto;background:#fff;overflow:hidden;padding:20mm 18mm;box-sizing:border-box;}
+    .invoice-card .wave-bg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+    .invoice-card .content{position:relative;z-index:1;}
+    .invoice-card .invoice-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:34px;color:#1a2b6d;letter-spacing:1px;margin-bottom:18px;}
+    .invoice-card .company-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:32px;letter-spacing:1px;text-align:center;color:#111;margin-bottom:28px;}
+    .invoice-card .top-section{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px;gap:20px;}
+    .invoice-card .invoice-meta p{font-size:15px;color:#222;margin-bottom:4px;font-weight:500;}
+    .invoice-card .customer-info{margin-top:22px;}
+    .invoice-card .customer-info p{font-size:15px;color:#222;font-weight:500;margin-bottom:4px;}
+    .invoice-card .business-info{text-align:right;}
+    .invoice-card .business-info .logo-label{font-size:14px;color:#333;margin-bottom:2px;}
+    .invoice-card .business-info .owner-name{font-family:'Poppins',sans-serif;font-size:22px;font-weight:600;color:#111;}
+    .invoice-card .business-info .owner-title{font-size:15px;color:#333;margin-bottom:8px;}
+    .invoice-card .business-info .phone{font-size:14px;color:#222;margin-bottom:10px;}
+    .invoice-card .business-info .address-label{font-size:14px;font-weight:700;color:#111;}
+    .invoice-card .business-info .address-line{font-size:14px;color:#222;}
+    .invoice-card table{width:100%;border-collapse:collapse;margin-top:10px;}
+    .invoice-card thead tr{background:#4f9fd6;}
+    .invoice-card thead th{color:#fff;font-size:14px;font-weight:700;letter-spacing:0.5px;text-align:left;padding:12px 10px;}
+    .invoice-card thead th.center{text-align:center;} .invoice-card thead th.right{text-align:right;}
+    .invoice-card tbody td{padding:16px 10px;font-size:15px;color:#111;border-bottom:1px solid #111;}
+    .invoice-card tbody td.center{text-align:center;} .invoice-card tbody td.right{text-align:right;}
+    .invoice-card .totals{display:flex;justify-content:flex-end;margin-top:20px;}
+    .invoice-card .totals table{width:320px;}
+    .invoice-card .totals td{padding:4px 0;font-size:15px;color:#111;}
+    .invoice-card .totals td.label{text-align:left;} .invoice-card .totals td.value{text-align:right;font-weight:500;}
+    .invoice-card .totals .grand-total td{font-weight:700;font-size:16px;padding-top:8px;}
+    .invoice-card .totals .small-label{font-size:11px;line-height:1.2;}
+    .invoice-card .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:30px;}
+    .invoice-card .quotes{font-size:15px;color:#222;font-style:italic;max-width:60%;}
+    .invoice-card .signature{text-align:center;}
+    .invoice-card .signature .line{width:220px;border-top:1px solid #111;margin-bottom:6px;}
+    .invoice-card .signature .sig-name{font-family:'Poppins',sans-serif;font-weight:700;font-size:20px;color:#111;}
+    .invoice-card .signature .sig-role{font-size:13px;color:#444;}
+    @page{size:A4;margin:0;}
+  `;
+  const genericCss = `
     @page{size:A4;margin:12mm;}
     body{font-family:Arial,sans-serif;color:#16241F;padding:20px;}
     table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #ccc;padding:8px 10px;text-align:left;}
     th{background-color:#F4F6F5;}
     .totals{margin-left:auto;width:260px; margin-top:15px;} .totals div{display:flex;justify-content:space-between;padding:4px 0; border-bottom:1px solid #eee;}
     .ihead{display:flex;justify-content:space-between;border-bottom:2px solid #0F2D33;padding-bottom:10px;margin-bottom:10px;}
-  </style></head><body>${content}</body></html>`);
+  `;
+  w.document.write(`<html><head><title>${title}</title><style>${isInvoiceCard?invoiceCardCss:genericCss}</style></head><body>${content}</body></html>`);
   w.document.close();
   setTimeout(()=>{ w.print(); }, 300);
 }
@@ -1260,6 +1414,7 @@ function lookupCustomer(){
 let dealerOrderCart = [];
 let pendingDealerPic = null;
 let dealerFormContext = { id: null, returnToLedger: false };
+let dealerEditContext = { dealerId: null, txnId: null };
 
 function migrateDealers(){
   DB.dealers.forEach(d=>{
@@ -1279,7 +1434,7 @@ function migrateDealers(){
 }
 
 function dealerBalance(d){
-  let totalGoods = (d.transactions||[]).filter(t=>t.type==='order'||t.type==='manual').reduce((s,t)=>s+Number(t.amount||0),0);
+  let totalGoods = (d.transactions||[]).filter(t=>t.type==='order').reduce((s,t)=>s+Number(t.amount||0),0);
   let totalPaid = (d.transactions||[]).filter(t=>t.type==='payment').reduce((s,t)=>s+Number(t.amount||0)+Number(t.discount||0),0);
   return { totalGoods, totalPaid, balance: totalGoods - totalPaid };
 }
@@ -1418,79 +1573,80 @@ function addDealerPayment(dealerId){
   viewDealerLedger(dealerId);
 }
 
-function addManualDealerTransaction(dealerId){
+function openDealerOrderTxnForm(dealerId, txnId){
   const d = DB.dealers.find(x=>x.id===dealerId);
-  const date = document.getElementById('dmanDate').value || todayISO();
-  const desc = document.getElementById('dmanDesc').value.trim();
-  const price = Number(document.getElementById('dmanPrice').value||0);
-  const qty = Number(document.getElementById('dmanQty').value||0);
-  if(!desc){ alert('Enter the model / description for this previous transaction.'); return; }
-  if(qty<=0 || price<0){ alert('Enter a valid quantity and price.'); return; }
-  d.transactions.push({ id: nextId(), type:'manual', date, desc, price, qty, amount: qty*price });
-  saveDB();
-  document.getElementById('dmanDesc').value = '';
-  document.getElementById('dmanQty').value = '1';
-  document.getElementById('dmanPrice').value = '';
-  viewDealerLedger(dealerId);
+  const t = txnId ? d.transactions.find(x=>x.id===txnId) : null;
+  dealerEditContext = { dealerId, txnId: txnId||null };
+  openModal(`
+    <div class="closeRow"><h3>${t?'Edit Transaction':'Add Previous Transaction'}</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div class="field"><label>Date</label><input type="date" id="edtDate" value="${t?t.date:todayISO()}"></div>
+    <div class="field"><label>Model & Description</label><input id="edtDesc" value="${t?t.desc:''}" placeholder="e.g. 1HP Water Pump Motor"></div>
+    <div class="grid cols-2">
+      <div class="field"><label>Per Piece Price (TK)</label><input type="number" id="edtPrice" value="${t?t.price:''}"></div>
+      <div class="field"><label>Quantity</label><input type="number" id="edtQty" value="${t?t.qty:1}" min="1"></div>
+    </div>
+    ${t && t.productId ? '<p class="muted" style="font-size:12px;">This entry is linked to current Stock — changing the quantity will adjust stock levels accordingly.</p>' : '<p class="muted" style="font-size:12px;">This is a manual/historical entry and will NOT affect current stock quantities.</p>'}
+    <button class="btn copper" onclick="saveDealerOrderTxn()">${t?'Save Changes':'+ Add Previous Transaction'}</button>
+  `);
 }
-
-function editDealerTransaction(dealerId, txnId){
+function saveDealerOrderTxn(){
+  const { dealerId, txnId } = dealerEditContext;
   const d = DB.dealers.find(x=>x.id===dealerId);
-  const t = d.transactions.find(x=>x.id===txnId);
-  if(!t) return;
-  if(t.type==='order'){ alert("Live stock orders can't be edited here — delete the entry and add a fresh order if a correction is needed."); return; }
-  if(t.type==='manual'){
-    openModal(`
-      <div class="closeRow"><h3>Edit Previous Transaction</h3><span class="x" onclick="closeModal()">✕</span></div>
-      <div class="field"><label>Date</label><input type="date" id="editTxnDate" value="${t.date}"></div>
-      <div class="field"><label>Model & Description</label><input id="editTxnDesc" value="${t.desc}"></div>
-      <div class="grid cols-2">
-        <div class="field"><label>Per Piece Price (TK)</label><input type="number" id="editTxnPrice" value="${t.price}"></div>
-        <div class="field"><label>Quantity</label><input type="number" id="editTxnQty" value="${t.qty}"></div>
-      </div>
-      <button class="btn copper" onclick="saveManualTxnEdit(${dealerId},${txnId})">Save Changes</button>
-    `);
-  } else if(t.type==='payment'){
-    openModal(`
-      <div class="closeRow"><h3>Edit Payment</h3><span class="x" onclick="closeModal()">✕</span></div>
-      <div class="field"><label>Date</label><input type="date" id="editTxnDate" value="${t.date}"></div>
-      <div class="field"><label>Amount Received (TK)</label><input type="number" id="editTxnAmt" value="${t.amount}"></div>
-      <div class="field"><label>Payment Type</label>
-        <select id="editTxnMethod">${['Cash','Bank','bKash','Nagad','Rocket'].map(m=>`<option ${t.method===m?'selected':''}>${m}</option>`).join('')}</select>
-      </div>
-      <div class="field"><label>Discount Given (TK)</label><input type="number" id="editTxnDiscount" value="${t.discount||0}"></div>
-      <button class="btn copper" onclick="savePaymentTxnEdit(${dealerId},${txnId})">Save Changes</button>
-    `);
+  const date = document.getElementById('edtDate').value || todayISO();
+  const desc = document.getElementById('edtDesc').value.trim();
+  const price = Number(document.getElementById('edtPrice').value||0);
+  const qty = Number(document.getElementById('edtQty').value||0);
+  if(!desc || qty<=0 || price<0){ alert('Enter a valid description, price and quantity.'); return; }
+  if(txnId){
+    const t = d.transactions.find(x=>x.id===txnId);
+    if(t.productId){
+      const p = DB.products.find(x=>x.id===t.productId);
+      if(p){ p.qty += t.qty; p.qty -= qty; }
+    }
+    t.date = date; t.desc = desc; t.price = price; t.qty = qty; t.amount = price*qty;
+  } else {
+    const id = nextId();
+    d.transactions.push({ id, type:'order', invoiceNo:'PREV-'+id, date, productId:null, desc, price, qty, amount:price*qty, manual:true });
   }
-}
-
-function saveManualTxnEdit(dealerId, txnId){
-  const d = DB.dealers.find(x=>x.id===dealerId);
-  const t = d.transactions.find(x=>x.id===txnId);
-  if(!t) return;
-  const date = document.getElementById('editTxnDate').value || t.date;
-  const desc = document.getElementById('editTxnDesc').value.trim();
-  const price = Number(document.getElementById('editTxnPrice').value||0);
-  const qty = Number(document.getElementById('editTxnQty').value||0);
-  if(!desc || qty<=0){ alert('Enter a valid description and quantity.'); return; }
-  t.date = date; t.desc = desc; t.price = price; t.qty = qty; t.amount = price*qty;
   saveDB();
   closeModal();
   viewDealerLedger(dealerId);
 }
 
-function savePaymentTxnEdit(dealerId, txnId){
+function editDealerPaymentTxn(dealerId, txnId){
   const d = DB.dealers.find(x=>x.id===dealerId);
   const t = d.transactions.find(x=>x.id===txnId);
   if(!t) return;
-  const date = document.getElementById('editTxnDate').value || t.date;
-  const amount = Number(document.getElementById('editTxnAmt').value||0);
-  const method = document.getElementById('editTxnMethod').value;
-  const discount = Number(document.getElementById('editTxnDiscount').value||0);
-  t.date = date; t.amount = amount; t.method = method; t.discount = discount;
+  dealerEditContext = { dealerId, txnId };
+  const methods = ['Cash','Bank','bKash','Nagad','Rocket'];
+  openModal(`
+    <div class="closeRow"><h3>Edit Payment</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div class="field"><label>Date</label><input type="date" id="edtPayDate" value="${t.date}"></div>
+    <div class="field"><label>Amount Received (TK)</label><input type="number" id="edtPayAmt" value="${t.amount}"></div>
+    <div class="field"><label>Payment Type</label>
+      <select id="edtPayMethod">${methods.map(m=>`<option ${t.method===m?'selected':''}>${m}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Discount Given (TK)</label><input type="number" id="edtPayDiscount" value="${t.discount||0}"></div>
+    <button class="btn copper" onclick="saveDealerPaymentEdit()">Save Changes</button>
+  `);
+}
+function saveDealerPaymentEdit(){
+  const { dealerId, txnId } = dealerEditContext;
+  const d = DB.dealers.find(x=>x.id===dealerId);
+  const t = d.transactions.find(x=>x.id===txnId);
+  const date = document.getElementById('edtPayDate').value || t.date;
+  const amount = Number(document.getElementById('edtPayAmt').value||0);
+  const method = document.getElementById('edtPayMethod').value;
+  const discount = Number(document.getElementById('edtPayDiscount').value||0);
+  if(amount<=0 && discount<=0){ alert('Enter a payment amount or discount.'); return; }
   const acc = DB.accounts.find(a=>a.dealerTxnRef===txnId);
-  if(acc){ acc.date = date; acc.amount = amount; acc.method = method; }
-  else if(amount>0){ DB.accounts.push({ id: nextId(), method, date, desc: `Dealer payment received — ${d.name}`, amount, direction:'in', dealerTxnRef: txnId }); }
+  if(amount>0){
+    if(acc){ acc.amount = amount; acc.date = date; acc.method = method; }
+    else { DB.accounts.push({ id: nextId(), method, date, desc: `Dealer payment received — ${d.name}`, amount, direction:'in', dealerTxnRef: txnId }); }
+  } else if(acc){
+    DB.accounts = DB.accounts.filter(a=>a.dealerTxnRef!==txnId);
+  }
+  t.date = date; t.amount = amount; t.method = method; t.discount = discount;
   saveDB();
   closeModal();
   viewDealerLedger(dealerId);
@@ -1520,13 +1676,11 @@ function buildDealerLedgerRowsHtml(d, printable){
   let rows = sorted.map((t,i)=>{
     const actionsTd = printable ? '' : `<td class="no-print">
         ${t.type==='order'?`<button class="btn small ghost" onclick="showDealerInvoicePreview(${d.id},'${t.invoiceNo}')">🧾</button>`:''}
-        ${(t.type==='manual'||t.type==='payment')?`<button class="btn small ghost" onclick="editDealerTransaction(${d.id},${t.id})">✎</button>`:''}
+        <button class="btn small ghost" onclick="${t.type==='order'?`openDealerOrderTxnForm(${d.id},${t.id})`:`editDealerPaymentTxn(${d.id},${t.id})`}">✎</button>
         <button class="btn small danger" onclick="deleteDealerTransaction(${d.id}, ${t.id})">✕</button>
       </td>`;
     if(t.type==='order'){
       return `<tr><td>${i+1}</td><td>${t.date}</td><td>${t.desc} <span class="muted" style="font-size:11px">(${t.invoiceNo})</span></td><td>${money(t.price)}</td><td>${t.qty}</td><td style="color:var(--danger)">${money(t.amount)}</td>${actionsTd}</tr>`;
-    } else if(t.type==='manual'){
-      return `<tr style="background:#FFF9EE"><td>${i+1}</td><td>${t.date}</td><td>${t.desc} <span class="muted" style="font-size:11px">(Previous)</span></td><td>${money(t.price)}</td><td>${t.qty}</td><td style="color:var(--danger)">${money(t.amount)}</td>${actionsTd}</tr>`;
     } else {
       const ded = Number(t.amount||0)+Number(t.discount||0);
       return `<tr style="background:#F2FAF6"><td>${i+1}</td><td>${t.date}</td><td><b>PAYMENT</b> (${t.method||'-'})${t.discount?` + Discount ${money(t.discount)}`:''}</td><td>-</td><td>-</td><td style="color:var(--good)">- ${money(ded)}</td>${actionsTd}</tr>`;
@@ -1569,23 +1723,15 @@ function viewDealerLedger(id){
       <div id="dealerLedgerTableWrap">${buildDealerLedgerRowsHtml(d, false)}</div>
     </div>
 
-    <div class="card" style="margin-bottom:14px;">
-      <h4 style="margin-bottom:10px;">3. Add Previous Transaction (Opening Balance / Old Goods & Order)</h4>
-      <p class="muted" style="margin:0 0 10px;">Use this to record goods, orders or dues from before this system was set up. This does not touch current stock — enter any date, model/description, price and quantity.</p>
-      <div class="grid cols-2">
-        <div class="field"><label>Date</label><input type="date" id="dmanDate" value="${todayISO()}"></div>
-        <div class="field"><label>Model & Description</label><input id="dmanDesc" placeholder="e.g. 1HP Water Pump Motor"></div>
-      </div>
-      <div class="grid cols-2">
-        <div class="field"><label>Per Piece Price (TK)</label><input type="number" id="dmanPrice" placeholder="0"></div>
-        <div class="field"><label>Quantity</label><input type="number" id="dmanQty" value="1" min="1"></div>
-      </div>
-      <button class="btn copper" style="width:100%;" onclick="addManualDealerTransaction(${d.id})">+ Add Previous Transaction</button>
-    </div>
-
     <div class="card" style="margin-bottom:0;">
-      <h4 style="margin-bottom:10px;">4. Invoice Options</h4>
-      <div class="grid cols-2">
+      <h4 style="margin-bottom:10px;">3. Invoice Options</h4>
+      <div class="grid cols-3">
+        <div class="card" style="margin-bottom:0;">
+          <h4>🕓 Add Previous Transaction</h4>
+          <p class="muted" style="font-size:12px;margin-bottom:10px;">Record an older goods/order entry or due amount from before this system was used — pick any past date. This will NOT affect current stock.</p>
+          <button class="btn ghost" style="width:100%;" onclick="openDealerOrderTxnForm(${d.id})">+ Add Previous Goods / Order</button>
+          <p class="muted" style="font-size:11px;margin-top:8px;">Tip: use ✎ on any row above in the table to edit its date, description, price or quantity anytime.</p>
+        </div>
         <div class="card" style="margin-bottom:0;">
           <h4>➕ Add Order (Issue Goods from Stock)</h4>
           <div class="field"><label>Order Date</label><input type="date" id="dordDate" value="${todayISO()}"></div>
@@ -1643,29 +1789,28 @@ function showDealerInvoicePreview(dealerId, invoiceNo){
   if(!d) return;
   const items = d.transactions.filter(t=>t.type==='order' && t.invoiceNo===invoiceNo);
   if(items.length===0){ alert('No items found for this invoice.'); return; }
-  const st = DB.settings;
   const date = items[0].date;
   const subtotal = items.reduce((s,it)=>s+Number(it.amount||0),0);
-  const itemRows = items.map((it,i)=>`<tr><td>${i+1}</td><td>${it.desc}</td><td>${money(it.price)}</td><td>${it.qty}</td><td>${money(it.amount)}</td></tr>`).join('');
   const { balance } = dealerBalance(d);
-  const html = `
-  <div class="invoicePreview" id="dealerInvoicePrintArea">
-    <div class="ihead">
-      <div>${st.logo?`<img src="${st.logo}">`:''}<h2>${st.companyName}</h2><div class="muted">Proprietor: ${st.proprietor}<br>${st.address}<br>Phone: ${st.phone}</div></div>
-      <div style="text-align:right"><h3>DEALER / B2B INVOICE</h3><div class="muted">No: ${invoiceNo}<br>Date: ${date}</div></div>
-    </div>
-    <p><b>Dealer / Client:</b> ${d.name} &nbsp;&nbsp;&nbsp; <b>Phone:</b> ${d.phone||'-'}<br><b>Address:</b> ${d.address||'-'}</p>
-    <table>
-      <thead><tr><th style="width:50px;">SL</th><th>Model & Description</th><th>Per Piece Price</th><th>Quantity</th><th>Amount</th></tr></thead>
-      <tbody>${itemRows}</tbody>
-    </table>
-    <div class="totals">
-      <div><b>Grand Total</b><b>${money(subtotal)}</b></div>
-      <div><span style="color:${balance>0?'var(--danger)':'var(--good)'};font-weight:bold;">${balance>0?'Total Account Due':'Total Advance'}</span><span style="color:${balance>0?'var(--danger)':'var(--good)'};font-weight:bold;">${money(Math.abs(balance))}</span></div>
-    </div>
-    <p style="margin-top:20px;font-style:italic; border-top:1px dashed var(--line); padding-top:10px;">${st.greeting}</p>
-    ${st.signature?`<img src="${st.signature}" style="max-height:50px;margin-top:16px"><div class="muted">Authorized Manager Signature</div>`:''}
-  </div>`;
+  const html = buildInvoiceCardHTML({
+    elementId: 'dealerInvoicePrintArea',
+    invoiceType: 'DEALER / B2B INVOICE',
+    invoiceNo,
+    date,
+    customerName: d.name,
+    customerLabel: 'Address / Phone',
+    customerAddress: `${d.address||'-'}${d.phone?' , '+d.phone:''}`,
+    items: items.map(it=>({ desc: it.desc, price: it.price, qty: it.qty, amount: it.amount })),
+    productHeader: 'MODEL & DESCRIPTION',
+    subtotal,
+    showDiscount: false,
+    grandTotalLabel: 'ORDER TOTAL',
+    grandTotal: subtotal,
+    showPaid: false,
+    dueLabel: balance>0 ? 'TOTAL ACCOUNT DUE' : 'TOTAL ADVANCE',
+    dueIsAdvance: balance<=0,
+    dueAmount: balance
+  });
   openModal(`<div class="closeRow no-print"><h3>Printable Dealer Invoice</h3><span class="x" onclick="closeModal()">✕</span></div>
   ${html}
   <div class="section-actions no-print" style="margin-top:14px">
@@ -1806,4 +1951,455 @@ function saveExtra(){
 
 /* ============================================================
    REPAIRING WORKSHOP COIL WINDING LOG LIST
-   ========================== 
+   ============================================================ */
+function page_repairs(){
+  let rows = DB.sales.filter(s=>s.isRepairInvoice).map(s=>`
+    <tr>
+      <td>${s.invoiceNo}</td>
+      <td>${s.date}</td>
+      <td>${s.customer}</td>
+      <td>${s.items.map(i=>i.desc).join('; ')}</td>
+      <td>${money(s.total)}</td>
+      <td><span class="pill paid">Settled Order</span></td>
+    </tr>`).join('');
+    
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar">
+    <p class="muted">Workshop Repair orders are processed natively inside the main point-of-sale screen terminal interface.</p>
+    <button class="btn copper" onclick="setSalesType('repair'); goto('quicksell');">Create Workshop Repair Ticket</button>
+  </div>
+  <div class="card">
+    <h3>Active / Historic Repair Invoices</h3>
+    <table>
+      <thead><tr><th>Invoice No</th><th>Date</th><th>Customer Name</th><th>Description / Repair Breakdown</th><th>Total Valuation</th><th>Status</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan=6 class="emptyState">No repair invoices logged via Quick Sell panel yet.</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+/* ============================================================
+   FEATURE 3: IMPORT STATEMENT SYSTEM (UPDATED)
+   ============================================================ */
+let tempImportItems = [];
+function page_imports(){
+  let rows = DB.imports.slice().reverse().map(i=>`
+    <tr>
+      <td>${i.landingDate}</td>
+      <td>${i.billOfLading}</td>
+      <td>${i.supplier}</td>
+      <td>${i.note || '-'}</td>
+      <td>
+        <button class="btn small copper" onclick="viewImportDetails(${i.id})">View Details</button>
+        <button class="btn small danger" onclick="deleteImport(${i.id})">Delete</button>
+      </td>
+    </tr>`).join(''); 
+    
+  document.getElementById('pageContent').innerHTML = `
+    <div class="toolbar"><div></div><button class="btn copper" onclick="openImportForm()">+ Add Import Record</button></div>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Landing Date</th>
+            <th>Bill Of Landing Nubmer</th>
+            <th>Supplier</th>
+            <th>Note</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan=5 class="emptyState">No import records yet.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+
+function openImportForm(){
+  tempImportItems = [];
+  openModal(`
+    <div class="closeRow"><h3>Add Import Record</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div class="grid cols-3" style="margin-bottom:15px;">
+      <div class="field"><label>Landing Date</label><input type="date" id="imDate" value="${todayISO()}"></div>
+      <div class="field"><label>Bill Of Landing Nubmer</label><input id="imBL"></div>
+      <div class="field"><label>Supplier</label><input id="imSupplier"></div>
+    </div>
+    <div class="field"><label>Note</label><input id="imNote"></div>
+    
+    <div class="card" style="margin-bottom:15px;">
+      <h4>Add Detailed Item to Shipment</h4>
+      <div class="grid cols-4" style="gap:5px;">
+        <div class="field"><label>HS Code</label><input id="itmHs"></div>
+        <div class="field"><label>Product Desc</label><input id="itmDesc"></div>
+        <div class="field"><label>Model</label><input id="itmModel"></div>
+        <div class="field"><label>Brand</label><input id="itmBrand"></div>
+        
+        <div class="field"><label>Quality</label><input id="itmQuality"></div>
+        <div class="field"><label>Origin</label><input id="itmOrigin"></div>
+        <div class="field"><label>Unit</label><input id="itmUnit" value="Pcs"></div>
+        <div class="field"><label>Quantity</label><input type="number" id="itmQty"></div>
+        
+        <div class="field"><label>Unit Price (USD)</label><input type="number" id="itmUpUsd"></div>
+        <div class="field"><label>Total Value (USD)</label><input type="number" id="itmTvUsd"></div>
+        <div class="field"><label>Freight (USD)</label><input type="number" id="itmFUsd"></div>
+        <div class="field"><label>CFR Value (USD)</label><input type="number" id="itmCfrUsd"></div>
+        
+        <div class="field"><label>Item Supplier</label><input id="itmSupp"></div>
+        <div class="field"><label>Invoice No.</label><input id="itmInv"></div>
+        <div class="field"><label>Invoice Date</label><input type="date" id="itmInvDate"></div>
+        <div class="field"><label>Remarks</label><input id="itmRemarks"></div>
+      </div>
+      <button class="btn ghost" onclick="addTempImportItem()">+ Add Item to Grid</button>
+    </div>
+    
+    <div style="max-height: 200px; overflow-y:auto;">
+      <table style="font-size:11px;">
+        <tbody id="tempImportGrid"></tbody>
+      </table>
+    </div>
+    <button class="btn copper" style="width:100%; margin-top:15px;" onclick="saveImport()">✅ Save Complete Import Container</button>
+  `, true);
+  renderTempImportGrid();
+}
+
+function addTempImportItem() {
+  const item = {
+    hs: document.getElementById('itmHs').value,
+    desc: document.getElementById('itmDesc').value,
+    model: document.getElementById('itmModel').value,
+    brand: document.getElementById('itmBrand').value,
+    quality: document.getElementById('itmQuality').value,
+    origin: document.getElementById('itmOrigin').value,
+    unit: document.getElementById('itmUnit').value,
+    qty: document.getElementById('itmQty').value,
+    upUsd: document.getElementById('itmUpUsd').value,
+    tvUsd: document.getElementById('itmTvUsd').value,
+    fUsd: document.getElementById('itmFUsd').value,
+    cfrUsd: document.getElementById('itmCfrUsd').value,
+    supp: document.getElementById('itmSupp').value,
+    invNo: document.getElementById('itmInv').value,
+    invDate: document.getElementById('itmInvDate').value,
+    remarks: document.getElementById('itmRemarks').value,
+  };
+  tempImportItems.push(item);
+  renderTempImportGrid();
+  // Quick clear important fields
+  ['itmDesc','itmModel','itmQty','itmUpUsd','itmTvUsd'].forEach(id=>document.getElementById(id).value='');
+}
+
+function renderTempImportGrid() {
+  let rows = tempImportItems.map((itm, i)=>`<tr><td>${i+1}</td><td>${itm.desc} - ${itm.model}</td><td>${itm.qty} ${itm.unit}</td><td>$${itm.tvUsd}</td><td><button class="btn small danger" onclick="tempImportItems.splice(${i},1);renderTempImportGrid()">✕</button></td></tr>`).join('');
+  document.getElementById('tempImportGrid').innerHTML = rows || '<tr><td>No items added yet.</td></tr>';
+}
+
+function saveImport(){
+  DB.imports.push({
+    id:nextId(), 
+    landingDate: document.getElementById('imDate').value, 
+    billOfLading: document.getElementById('imBL').value, 
+    supplier: document.getElementById('imSupplier').value, 
+    note: document.getElementById('imNote').value,
+    items: [...tempImportItems]
+  }); 
+  closeModal(); 
+  goto('imports');
+}
+
+function deleteImport(id){
+  if(confirm('Delete this import record completely?')) { DB.imports = DB.imports.filter(x=>x.id!==id); goto('imports'); }
+}
+
+function viewImportDetails(id) {
+  const im = DB.imports.find(x=>x.id===id);
+  if(!im) return;
+  
+  let rows = (im.items || []).map((itm, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${itm.hs}</td>
+      <td>${itm.desc}</td>
+      <td>${itm.model}</td>
+      <td>${itm.brand}</td>
+      <td>${itm.quality}</td>
+      <td>${itm.origin}</td>
+      <td>${itm.unit}</td>
+      <td>${itm.qty}</td>
+      <td>${itm.upUsd}</td>
+      <td>${itm.tvUsd}</td>
+      <td>${itm.fUsd}</td>
+      <td>${itm.cfrUsd}</td>
+      <td>${itm.supp}</td>
+      <td>${itm.invNo}</td>
+      <td>${itm.invDate}</td>
+      <td>${itm.remarks}</td>
+    </tr>
+  `).join('');
+
+  let html = `
+    <div class="closeRow no-print"><h3>Import Details: BL# ${im.billOfLading}</h3><span class="x" onclick="closeModal()">✕</span></div>
+    <div id="importPrintArea" style="overflow-x:auto;">
+      <div style="margin-bottom:10px;"><b>Landing Date:</b> ${im.landingDate} | <b>Supplier:</b> ${im.supplier} | <b>Note:</b> ${im.note}</div>
+      <table style="font-size:11px; white-space:nowrap;">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>HS Code</th>
+            <th>Product Description</th>
+            <th>Model</th>
+            <th>Brand</th>
+            <th>Quality</th>
+            <th>Origin</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+            <th>Unit Price (USD)</th>
+            <th>Total Value (USD)</th>
+            <th>Freight (USD)</th>
+            <th>CFR Value (USD)</th>
+            <th>Supplier</th>
+            <th>Invoice No.</th>
+            <th>Invoice Date</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="17">No items recorded in this shipment.</td></tr>'}</tbody>
+      </table>
+    </div>
+    <button class="btn copper no-print" style="margin-top:15px;" onclick="printArea('importPrintArea', 'Import BL - ${im.billOfLading}')">Print / PDF</button>
+  `;
+  openModal(html, false, true); // Open XL modal
+}
+
+/* ============================================================
+   ACCOUNTING SUITE (The 7 Pillars of Ledgers)
+   ============================================================ */
+let currentAccountingTab = 'cashbook';
+
+function page_reports(){
+  document.getElementById('pageContent').innerHTML = `
+    <div class="tabs no-print">
+      <div class="tab ${currentAccountingTab==='cashbook'?'active':''}" onclick="switchAccountingTab('cashbook')">1. Cash Book</div>
+      <div class="tab ${currentAccountingTab==='bankbook'?'active':''}" onclick="switchAccountingTab('bankbook')">2. Bank Book</div>
+      <div class="tab ${currentAccountingTab==='customerdue'?'active':''}" onclick="switchAccountingTab('customerdue')">3. Customer Due Book</div>
+      <div class="tab ${currentAccountingTab==='supplierdue'?'active':''}" onclick="switchAccountingTab('supplierdue')">4. Supplier Due Book</div>
+      <div class="tab ${currentAccountingTab==='income'?'active':''}" onclick="switchAccountingTab('income')">5. Income Ledger</div>
+      <div class="tab ${currentAccountingTab==='expenses'?'active':''}" onclick="switchAccountingTab('expenses')">6. Expenses Ledger</div>
+      <div class="tab ${currentAccountingTab==='profitloss'?'active':''}" onclick="switchAccountingTab('profitloss')">7. Profit & Loss Statement</div>
+    </div>
+    <div id="accountingReportContent"></div>
+  `;
+  switchAccountingTab(currentAccountingTab);
+}
+
+function switchAccountingTab(tabKey) {
+  currentAccountingTab = tabKey;
+  document.querySelectorAll('.tabs .tab').forEach(el => el.classList.remove('active'));
+  
+  const container = document.getElementById('accountingReportContent');
+  if(!container) return;
+
+  switch(tabKey) {
+    case 'cashbook': renderCashBook(container); break;
+    case 'bankbook': renderBankBook(container); break;
+    case 'customerdue': renderCustomerDueBook(container); break;
+    case 'supplierdue': renderSupplierDueBook(container); break;
+    case 'income': renderIncomeLedger(container); break;
+    case 'expenses': renderExpensesLedger(container); break;
+    case 'profitloss': renderProfitLossStatement(container); break;
+  }
+}
+
+function renderCashBook(target) {
+  const cashTrans = DB.accounts.filter(a => a.method === 'Cash');
+  let rows = cashTrans.map(t => `<tr><td>${t.date}</td><td>${t.desc}</td><td style="color:${t.direction==='in'?'green':'red'}">${t.direction==='in'?'+':'-'}${money(t.amount)}</td></tr>`).join('');
+  const netCash = cashTrans.reduce((s,t) => s + (t.direction==='in'?t.amount:-t.amount), 0);
+  target.innerHTML = `<div class="card"><h3>Cash Account Ledger (In-Hand Cash Flow)</h3><div class="kpi" style="max-width:300px; margin-bottom:15px;"><div class="label">Net Fluid Cash Balance</div><div class="value">${money(netCash)}</div></div><table><thead><tr><th>Date</th><th>Description Reference</th><th>Flow Change</th></tr></thead><tbody>${rows || '<tr><td colspan=3>No cash transactions.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderBankBook(target) {
+  const bankTrans = DB.accounts.filter(a => ['bKash','Rocket','Nagad','Bank'].includes(a.method));
+  let rows = bankTrans.map(t => `<tr><td>${t.date}</td><td><b>${t.method}</b></td><td>${t.desc}</td><td style="color:${t.direction==='in'?'green':'red'}">${t.direction==='in'?'+':'-'}${money(t.amount)}</td></tr>`).join('');
+  const netBank = bankTrans.reduce((s,t) => s + (t.direction==='in'?t.amount:-t.amount), 0);
+  target.innerHTML = `<div class="card"><h3>Bank Book & Digital Wallet Accounts</h3><div class="kpi c3" style="max-width:300px; margin-bottom:15px;"><div class="label">Net Bank & MFS Assets</div><div class="value">${money(netBank)}</div></div><table><thead><tr><th>Date</th><th>Account Node</th><th>Description Reference</th><th>Flow Change</th></tr></thead><tbody>${rows || '<tr><td colspan=4>No banking transactions.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderCustomerDueBook(target) {
+  const liveDues = DB.sales.filter(s=>s.due > 0).map(s=>({ customer: s.customer, phone: s.phone||'N/A', ref: s.invoiceNo, amt: s.due, date: s.date }));
+  const priorDues = DB.historicalDues.filter(hd=>hd.status==='Unpaid').map(hd=>({ customer: hd.name, phone: hd.phone||'N/A', ref: hd.invoiceNo, amt: hd.amount, date: hd.dueDate }));
+  const combined = [...liveDues, ...priorDues];
+  const sum = combined.reduce((s,x)=>s+x.amt,0);
+  let rows = combined.map(c=>`<tr><td>${c.date}</td><td>${c.customer} (${c.phone})</td><td>${c.ref}</td><td>${money(c.amt)}</td></tr>`).join('');
+  target.innerHTML = `<div class="card"><h3>Customer Dues Account Receivable Register</h3><div class="kpi c2" style="max-width:300px; margin-bottom:15px;"><div class="label">Total Outstanding Market Receivables</div><div class="value">${money(sum)}</div></div><table><thead><tr><th>Date Originated</th><th>Client Profile</th><th>Reference</th><th>Balance Due</th></tr></thead><tbody>${rows || '<tr><td colspan=4>Clear slate! No active system customer debts.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderSupplierDueBook(target) {
+  const creditPurchases = DB.purchases.filter(p => p.status === 'due');
+  const sum = creditPurchases.reduce((s,p)=>s+p.total,0);
+  let rows = creditPurchases.map(p => `<tr><td>${p.date}</td><td>${p.supplier}</td><td>Ref: PROC-${p.id}</td><td>${money(p.total)}</td></tr>`).join('');
+  target.innerHTML = `<div class="card"><h3>Supplier Dues & B2B Trade Accounts Payable</h3><div class="kpi c4" style="max-width:300px; margin-bottom:15px;"><div class="label">Total Outstanding Vendor Payable Debts</div><div class="value">${money(sum)}</div></div><table><thead><tr><th>Date Logged</th><th>Supplier Vendor Profile</th><th>Reference Node</th><th>Debt Value</th></tr></thead><tbody>${rows || '<tr><td colspan=4>No outstanding procurement invoices payable.</td></tr>'}</tbody></table></div>`;
+}
+
+function renderIncomeLedger(target) {
+  const salesRevenue = DB.sales.reduce((s,x)=>s+x.total,0);
+  const extraRev = DB.extraIncome.reduce((s,x)=>s+x.amount,0);
+  target.innerHTML = `<div class="card"><h3>Operational Income Stream Matrix</h3><div class="grid cols-3" style="margin-bottom:15px;"><div class="kpi"><div class="label">Primary Invoicing (Sales/Repairs)</div><div class="value">${money(salesRevenue)}</div></div><div class="kpi c3"><div class="label">Extra Scrap Waste Income</div><div class="value">${money(extraRev)}</div></div><div class="kpi c2"><div class="label">Gross Combined Yield Revenue</div><div class="value">${money(salesRevenue+extraRev)}</div></div></div><h4>Recent Billing Activities Breakdown</h4><table><thead><tr><th>Invoice No</th><th>Date</th><th>Client</th><th>Total Valuation</th></tr></thead><tbody>${DB.sales.slice(-5).reverse().map(s=>`<tr><td>${s.invoiceNo}</td><td>${s.date}</td><td>${s.customer}</td><td>${money(s.total)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderExpensesLedger(target) {
+  const structuralExpenses = DB.expenses.reduce((s,e)=>s+e.amount,0);
+  const stockProcurementOut = DB.purchases.filter(p=>p.status==='paid').reduce((s,p)=>s+p.total,0);
+  const staffPayrollOut = DB.staff.reduce((s,st)=> s + ((st.salaryIncome || st.salary) + (st.bonus || 0) + (st.tiffinAllowance || 0)), 0);
+  target.innerHTML = `<div class="card"><h3>Operational General Expenses Ledger</h3><div class="grid cols-4" style="margin-bottom:15px;"><div class="kpi c4"><div class="label">General Overhead Tickets</div><div class="value">${money(structuralExpenses)}</div></div><div class="kpi c2"><div class="label">Cash Product Sourcing Bills</div><div class="value">${money(stockProcurementOut)}</div></div><div class="kpi c4"><div class="label">Staff Compensation Assets</div><div class="value">${money(staffPayrollOut)}</div></div><div class="kpi c2"><div class="label">Gross Combined Outflows</div><div class="value">${money(structuralExpenses + stockProcurementOut + staffPayrollOut)}</div></div></div></div>`;
+}
+
+function renderProfitLossStatement(target) {
+  const grossIncome = DB.sales.reduce((s,x)=>s+x.total,0) + DB.extraIncome.reduce((s,x)=>s+x.amount,0);
+  const approximateCogsCost = DB.sales.reduce((s,x)=> s + x.items.reduce((a,it)=>{
+    if(!it.productId) return a;
+    const p = DB.products.find(pp=>pp.id===it.productId);
+    return a + (p ? p.buyPrice * it.qty : 0);
+  },0),0);
+  const overheadExpenses = DB.expenses.reduce((s,e)=>s+e.amount,0);
+  const staffCompensation = DB.staff.reduce((s,st)=> s + ((st.salaryIncome || st.salary) + (st.bonus || 0) + (st.tiffinAllowance || 0)), 0);
+  const totalDeductionsMatrix = approximateCogsCost + overheadExpenses + staffCompensation;
+  const netBottomLineProfit = grossIncome - totalDeductionsMatrix;
+
+  target.innerHTML = `
+    <div class="card">
+      <h3>Comprehensive Corporate Profit & Loss Balance Sheet</h3>
+      <table style="margin-top:15px; font-size:16px;">
+        <tr style="background:#eee; font-weight:bold;"><td>1. Aggregate Inbound Income Streams</td><td>Value BDT</td></tr>
+        <tr><td>Store Checkout Sales & Workshop Repair Revenue Receipts</td><td>${money(DB.sales.reduce((s,x)=>s+x.total,0))}</td></tr>
+        <tr><td>Alternative Secondary Asset Liquidation (Scrap Copper Wire/Iron Yards)</td><td>${money(DB.extraIncome.reduce((s,x)=>s+x.amount,0))}</td></tr>
+        <tr style="font-weight:bold; color:var(--teal)"><td>Gross Aggregate Revenue Yield (A)</td><td>${money(grossIncome)}</td></tr>
+        
+        <tr style="background:#eee; font-weight:bold;"><td>2. Operational Costs & Outflow Debits</td><td></td></tr>
+        <tr><td>Calculated Inventory Cost of Goods Sold (COGS purchase values)</td><td>-${money(approximateCogsCost)}</td></tr>
+        <tr><td>General Ledger Expense Vouchers (Rent, utility bills, maintenance lines)</td><td>-${money(overheadExpenses)}</td></tr>
+        <tr><td>Staff Human Capital Compensations (Base Salaries + Bonuses + Tiffin Allowances)</td><td>-${money(staffCompensation)}</td></tr>
+        <tr style="font-weight:bold; color:var(--danger)"><td>Total Value Accumulation of Operational Expenditures (B)</td><td>-${money(totalDeductionsMatrix)}</td></tr>
+        
+        <tr style="background:var(--navy); color:#fff; font-weight:bold; font-size:18px;">
+          <td>NET ESTIMATED BOTTOM-LINE OPERATIONAL PROFIT (A - B)</td>
+          <td>${money(netBottomLineProfit)}</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+/* ============================================================
+   QUICK NOTES
+   ============================================================ */
+function page_notes(){
+  let rows = DB.notes.slice().reverse().map(n=>`<div class="card"><div class="muted">${n.date}</div><p>${n.text}</p><button class="btn small danger" onclick="DB.notes=DB.notes.filter(x=>x.id!==${n.id});goto('notes')">Delete</button></div>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card"><div class="field"><label>New Note</label><textarea id="noteText" rows="3"></textarea></div><button class="btn copper" onclick="addNote()">+ Add Note</button></div>
+  ${rows || '<div class="emptyState">No notes yet.</div>'}`;
+}
+function addNote(){
+  const t = document.getElementById('noteText').value.trim(); if(!t) return; DB.notes.push({id:nextId(), date: new Date().toLocaleString(), text:t}); goto('notes');
+}
+
+/* ============================================================
+   SMS & INVOICE TEMPLATE SETTINGS
+   ============================================================ */
+function page_sms(){
+  const st = DB.settings;
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>SMS / WhatsApp Templates</h3>
+    <p class="muted">Use placeholders: {customer}, {invoice}, {total}, {paid}, {due}</p>
+    <div class="field"><label>Due Reminder Template</label><textarea id="smsDue" rows="3">${st.smsDueTemplate}</textarea></div>
+    <div class="field"><label>Invoice Confirmation Template</label><textarea id="smsInv" rows="3">${st.smsInvoiceTemplate}</textarea></div>
+    <button class="btn copper" onclick="saveSmsTemplates()">Save Templates</button>
+  </div>
+  <div class="card">
+    <h3>Invoice Template Design</h3>
+    <div class="grid cols-2">
+      <div class="field"><label>Company Name</label><input id="tplName" value="${st.companyName}"></div>
+      <div class="field"><label>Proprietor Name</label><input id="tplProp" value="${st.proprietor}"></div>
+      <div class="field"><label>Phone</label><input id="tplPhone" value="${st.phone}"></div>
+      <div class="field"><label>Address</label><input id="tplAddress" value="${st.address}"></div>
+    </div>
+    <div class="field"><label>Greeting / Thank-you Quote</label><textarea id="tplGreeting">${st.greeting}</textarea></div>
+    <div class="field"><label>Company Logo (upload image)</label><input type="file" accept="image/*" onchange="uploadImg(this,'logo')">${st.logo?'<div class="muted">Logo set ✓</div>':''}</div>
+    <div class="field"><label>Authorized Signature (upload image)</label><input type="file" accept="image/*" onchange="uploadImg(this,'signature')">${st.signature?'<div class="muted">Signature set ✓</div>':''}</div>
+    <button class="btn copper" onclick="saveTemplateSettings()">Save Template Settings</button>
+  </div>`;
+}
+function uploadImg(input, field){
+  const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = e=>{ DB.settings[field] = e.target.result; alert((field==='logo'?'Logo':'Signature')+' uploaded.'); saveDB(); }; reader.readAsDataURL(file);
+}
+function saveSmsTemplates(){
+  DB.settings.smsDueTemplate = document.getElementById('smsDue').value; DB.settings.smsInvoiceTemplate = document.getElementById('smsInv').value; alert('Templates saved.'); saveDB();
+}
+function saveTemplateSettings(){
+  DB.settings.companyName = document.getElementById('tplName').value; DB.settings.proprietor = document.getElementById('tplProp').value; DB.settings.phone = document.getElementById('tplPhone').value; DB.settings.address = document.getElementById('tplAddress').value; DB.settings.greeting = document.getElementById('tplGreeting').value; alert('Invoice template updated.'); saveDB();
+}
+
+/* ============================================================
+   ADMIN MANAGEMENT 
+   ============================================================ */
+function page_admins(){
+  let rows = DB.admins.map(a=>`<tr><td>${a.username}</td><td>${a.role}</td><td>${a.isSuper?'⭐ Super Admin':''}</td><td><button class="btn small ghost" onclick="editAdmin(${a.id})">Edit</button> ${(!a.isSuper && session.user.isSuper) ? `<button class="btn small danger" onclick="deleteAdmin(${a.id})">Delete</button>` : ''}</td></tr>`).join('');
+  document.getElementById('pageContent').innerHTML = `
+  <div class="toolbar"><div class="muted">Only the Super Admin can delete other admins.</div><button class="btn copper" onclick="editAdmin(null)">+ Add Admin</button></div><div class="card"><table><thead><tr><th>Username</th><th>Role</th><th>Type</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function editAdmin(id){
+  const a = id ? DB.admins.find(x=>x.id===id) : {username:'',password:'',role:'Admin'}; openModal(`<div class="closeRow"><h3>${id?'Edit':'Add'} Admin</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Username</label><input id="adUser" value="${a.username}"></div><div class="field"><label>Password</label><input id="adPass" type="text" value="${a.password||''}"></div><div class="field"><label>Role Profile</label><select id="adRole"><option ${a.role==='Admin'?'selected':''}>Admin</option><option ${a.role==='Manager'?'selected':''}>Manager</option></select></div><button class="btn copper" onclick="saveAdmin(${id})">Save Admin Profile</button>`);
+}
+function saveAdmin(id){
+  const u = document.getElementById('adUser').value.trim(); const p = document.getElementById('adPass').value; const r = document.getElementById('adRole').value; if(!u || !p) return; if(id){ const target = DB.admins.find(x=>x.id===id); target.username=u; target.password=p; target.role=r; }else{ DB.admins.push({id:nextId(), username:u, password:p, role:r, isSuper:false}); }
+  closeModal(); goto('admins');
+}
+function deleteAdmin(id){ if(confirm('Delete this user?')){ DB.admins = DB.admins.filter(x=>x.id!==id); goto('admins'); } }
+
+
+/* ============================================================
+   DATABASE MANAGEMENT (EXPORT / IMPORT / SYNC)
+   ============================================================ */
+function page_settings() {
+  document.getElementById('pageContent').innerHTML = `
+  <div class="card">
+    <h3>Database Backup & Restore</h3>
+    <p class="muted">Download a complete offline copy of your entire system data, or restore from a previously saved JSON file.</p>
+    <div class="section-actions" style="margin-top: 15px;">
+      <button class="btn copper" onclick="exportDatabase()">⬇ Download Full Backup (JSON)</button>
+      <button class="btn ghost" onclick="document.getElementById('importBackupBtn').click()">⬆ Restore Database</button>
+      <input type="file" id="importBackupBtn" accept=".json" style="display:none" onchange="importDatabase(this)">
+    </div>
+  </div>`;
+}
+
+function exportDatabase() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(DB));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href", dataStr);
+  dlAnchorElem.setAttribute("download", "monzu_pos_backup_" + todayISO() + ".json");
+  dlAnchorElem.click();
+}
+
+function importDatabase(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const backupData = JSON.parse(e.target.result);
+      if (confirm("Are you sure you want to restore? This will overwrite your current active data.")) {
+        mergeIntoDB(backupData);
+        saveDB();
+        alert('Database restored successfully.');
+        goto('dashboard');
+      }
+    } catch (err) {
+      alert("Invalid backup file.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Initializing logic
+document.addEventListener("DOMContentLoaded", () => {
+  loadCloudDB();
+  document.getElementById('loginPass').addEventListener("keyup", (e)=>{ if(e.key==="Enter") doLogin(); });
+});
+</script>
+</body>
+</html>
