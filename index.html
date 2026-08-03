@@ -268,8 +268,9 @@ const RECOVERY = { uniqueNumber: "504104", adminRecoveryCode: "010210963446" };
 
 let DB = {
   admins: [
-    { id: 1, username: "admin", password: "1234", role: "Super Admin", isSuper: true }
+    { id: 1, username: "admin", password: "1234", role: "Super Admin", isSuper: true, permissions: null }
   ],
+  activityLog: [],
   products: [
     { id: 1, brand: "Monzu", model: "0.5HP Water Pump", qty: 12, buyPrice: 3200, sellPrice: 4200, warrantyValue: 12, warrantyUnit: "months" },
     { id: 2, brand: "Rehau", model: "PPR Pipe 20mm (4m)", qty: 60, buyPrice: 220, sellPrice: 320, warrantyValue: 0, warrantyUnit: "months" }
@@ -391,6 +392,56 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 function fmt(n){ return (Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:2}); }
 function money(n){ return "৳"+fmt(n); }
 
+/* ---------------- ROLES & PERMISSIONS ---------------- */
+const MODULES = { sales:'Sales Mode', ops:'Operations', staff:'Staff', finance:'Finance Book' };
+const PAGE_MODULE = {
+  dashboard:'sales', quicksell:'sales', invoices:'sales', purchases:'sales',
+  stock:'ops', warranty:'ops', premium:'ops', repairs:'ops', imports:'ops',
+  customers:'staff', dealers:'staff', staff:'staff',
+  payments:'finance', accounts:'finance', expenses:'finance', extraincome:'finance', reports:'finance',
+  notes:'system', sms:'system', admins:'system', settings:'system'
+};
+const GROUP_MODULE = { menu_sales:'sales', menu_ops:'ops', menu_people:'staff', menu_finance:'finance', menu_system:'system' };
+function defaultPermissions(){
+  return {
+    sales:{view:true, add:false, edit:false, delete:false},
+    ops:{view:true, add:false, edit:false, delete:false},
+    staff:{view:true, add:false, edit:false, delete:false},
+    finance:{view:true, add:false, edit:false, delete:false}
+  };
+}
+function ensureAdminDefaults(){
+  if(!DB.activityLog) DB.activityLog = [];
+  DB.admins.forEach(a=>{
+    if(a.isSuper){ a.permissions = null; }
+    else if(!a.permissions){ a.permissions = defaultPermissions(); }
+  });
+}
+function can(module, action){
+  if(!session.user) return false;
+  if(session.user.isSuper) return true;
+  if(module==='system') return false;
+  const perm = session.user.permissions && session.user.permissions[module];
+  return !!(perm && perm[action]);
+}
+function requirePerm(module, action){
+  if(can(module, action)) return true;
+  alert('You do not have permission to '+action+' in '+(MODULES[module]||module)+'.');
+  return false;
+}
+function logActivity(action, details){
+  if(!DB.activityLog) DB.activityLog = [];
+  DB.activityLog.unshift({
+    id: nextId(),
+    username: session.user ? session.user.username : 'system',
+    role: session.user ? session.user.role : '',
+    action, details: details||'',
+    time: new Date().toLocaleString()
+  });
+  if(DB.activityLog.length > 500) DB.activityLog.length = 500;
+  saveDB();
+}
+
 /* ---------------- TRANSLATIONS ---------------- */
 const T = {
   en: {
@@ -417,6 +468,7 @@ function tr(key){ return T[DB.settings.language][key] || key; }
 /* ---------------- LOGIN LOGIC ---------------- */
 function doLogin(){
   if(!cloudReady){ document.getElementById('loginErr').textContent = "Still connecting to the database, please wait a moment…"; return; }
+  ensureAdminDefaults();
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   const admin = DB.admins.find(a=>a.username===u && a.password===p);
@@ -424,6 +476,7 @@ function doLogin(){
   session.user = admin;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
+  logActivity('Login', 'Signed in to the POS system');
   initApp();
 }
 function showRecover(){
@@ -467,6 +520,7 @@ function doRecoveryCode(){
   setTimeout(showRecover,1000);
 }
 function logout(){
+  if(session.user) logActivity('Logout', 'Signed out of the POS system');
   session.user=null;
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
@@ -495,29 +549,48 @@ const NAV = [
 let currentPage = 'dashboard';
 
 function initApp(){
+  ensureAdminDefaults();
   document.getElementById('userBadge').textContent = session.user.username + " (" + session.user.role + ")";
   renderSidebar();
-  goto('dashboard');
+  let target = 'dashboard';
+  if(!(session.user.isSuper || can('sales','view'))){
+    outer:
+    for(const g of NAV){
+      const mod = GROUP_MODULE[g.group];
+      if(mod==='system') continue;
+      if(can(mod,'view')){ target = g.items[0][0]; break outer; }
+    }
+  }
+  goto(target);
   updateLangUI();
 }
 function renderSidebar(){
   let html = `<div class="brand"><div class="logoMark">MP</div><div><b>Monzu Plumbing</b><span>POS System</span></div></div>`;
   NAV.forEach(g=>{
+    const mod = GROUP_MODULE[g.group];
+    const visibleItems = g.items.filter(item => (mod==='system') ? (session.user && session.user.isSuper) : can(mod,'view'));
+    if(visibleItems.length===0) return;
     html += `<div class="navgroup"><div class="navlabel">${tr(g.group)}</div>`;
-    g.items.forEach(([key])=>{
-      html += `<div class="navitem${currentPage===key?' active':''}" onclick="goto('${key}')"><span>${g.items.find(i=>i[0]===key)[2]}</span><span>${tr(key)}</span></div>`;
+    visibleItems.forEach(([key,,icon])=>{
+      html += `<div class="navitem${currentPage===key?' active':''}" onclick="goto('${key}')"><span>${icon}</span><span>${tr(key)}</span></div>`;
     });
     html += `</div>`;
   });
   document.getElementById('sidebar').innerHTML = html;
 }
 function goto(page){
+  const mod = PAGE_MODULE[page];
+  const allowed = !mod || (mod==='system' ? (session.user && session.user.isSuper) : can(mod,'view'));
   currentPage = page;
   document.getElementById('pageTitle').textContent = tr(page);
   renderSidebar();
-  const fn = window['page_'+page];
   document.getElementById('pageContent').innerHTML = '';
-  if(fn) fn(); else document.getElementById('pageContent').innerHTML = '<div class="emptyState">Coming soon.</div>';
+  if(!allowed){
+    document.getElementById('pageContent').innerHTML = '<div class="emptyState">🚫 You do not have permission to view this section. Contact your Super Admin.</div>';
+  } else {
+    const fn = window['page_'+page];
+    if(fn) fn(); else document.getElementById('pageContent').innerHTML = '<div class="emptyState">Coming soon.</div>';
+  }
   saveDB();
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('show');
@@ -642,6 +715,7 @@ function editProduct(id){
   <button class="btn copper" onclick="saveProduct(${id})">Save</button>`);
 }
 function saveProduct(id){
+  if(!requirePerm('ops', id?'edit':'add')) return;
   const data = {
     brand: document.getElementById('pBrand').value,
     model: document.getElementById('pModel').value,
@@ -651,11 +725,19 @@ function saveProduct(id){
     warrantyValue: Number(document.getElementById('pWarVal').value),
     warrantyUnit: document.getElementById('pWarUnit').value
   };
-  if(id){ Object.assign(DB.products.find(x=>x.id===id), data); }
-  else { data.id = nextId(); DB.products.push(data); }
+  if(id){ Object.assign(DB.products.find(x=>x.id===id), data); logActivity('Edited Product', data.brand+' '+data.model); }
+  else { data.id = nextId(); DB.products.push(data); logActivity('Added Product', data.brand+' '+data.model); }
   closeModal(); goto('stock');
 }
-function deleteProduct(id){ if(confirm('Delete this product?')){ DB.products = DB.products.filter(x=>x.id!==id); goto('stock'); } }
+function deleteProduct(id){
+  if(!requirePerm('ops','delete')) return;
+  if(confirm('Delete this product?')){
+    const p = DB.products.find(x=>x.id===id);
+    DB.products = DB.products.filter(x=>x.id!==id);
+    logActivity('Deleted Product', p ? (p.brand+' '+p.model) : ('#'+id));
+    goto('stock');
+  }
+}
 function downloadStockPDF(){ buildPrintable('Stock Statement', buildStockStatementHTML()); }
 function buildStockStatementHTML(){
   let rows = DB.products.map(p=>`<tr><td>${p.brand}</td><td>${p.model}</td><td>${p.qty}</td><td>${money(p.buyPrice)}</td><td>${money(p.sellPrice)}</td><td>${money(p.qty*p.buyPrice)}</td></tr>`).join('');
@@ -775,10 +857,12 @@ function openAddPartWorkshopModal() {
 }
 
 function saveWorkshopPart() {
+  if(!requirePerm('ops','add')) return;
   const name = document.getElementById('newPartName').value.trim();
   const price = Number(document.getElementById('newPartPrice').value || 0);
   if(!name) return;
   DB.repairParts.push({ id: nextId(), name, price });
+  logActivity('Added Workshop Part', name);
   closeModal();
   page_quicksell();
 }
@@ -850,6 +934,7 @@ function removeCartItem(i){
 }
 
 function finalizeSale(){
+  if(!requirePerm('sales','add')) return;
   if(cart.length===0){ alert('Cart is empty.'); return; }
   const discount = Number(document.getElementById('qsDiscount').value||0);
   const total = cartTotal() - discount;
@@ -869,6 +954,7 @@ function finalizeSale(){
   };
   
   DB.sales.push(sale);
+  logActivity('Created Sale Invoice', sale.invoiceNo+' - Total '+money(sale.total)+' ('+sale.customer+')');
   
   cart.forEach(c=>{ 
     if(c.productId) {
@@ -922,6 +1008,7 @@ function openPaymentUpdate(id){
   <button class="btn copper" onclick="submitPayment(${id})">Confirm Payment</button>`);
 }
 function submitPayment(id){
+  if(!requirePerm('sales','edit')) return;
   const s = DB.sales.find(x=>x.id===id);
   const amt = Number(document.getElementById('payAmt').value||0);
   const method = document.getElementById('payMethod').value;
@@ -930,6 +1017,7 @@ function submitPayment(id){
   s.due = Math.max(s.total - s.paid, 0);
   s.status = s.due<=0?'paid':(s.paid>0?'partial':'due');
   DB.accounts.push({id:nextId(), method, date:todayISO(), desc:'Invoice collection '+s.invoiceNo, amount:amt, direction:'in'});
+  logActivity('Collected Payment', s.invoiceNo+' - '+money(amt)+' via '+method);
   closeModal(); goto('invoices');
 }
 
@@ -1160,6 +1248,7 @@ function addPurchaseItem(){
   document.getElementById('puCartBody').innerHTML = renderPurchaseCart();
 }
 function savePurchase(){
+  if(!requirePerm('sales','add')) return;
   if(purchaseCart.length===0) return;
   const supplier = document.getElementById('puSupplier').value || 'Generic Supplier';
   const total = purchaseCart.reduce((s,i)=>s+i.qty*i.cost,0);
@@ -1171,6 +1260,7 @@ function savePurchase(){
   if(scenario === 'paid') {
     DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Settled Supplier Bill: '+supplier, amount:total, direction:'out'});
   }
+  logActivity('Recorded Purchase', supplier+' - '+money(total));
   purchaseCart = [];
   goto('purchases');
 }
@@ -1271,6 +1361,7 @@ function page_payments(){
 }
 
 function commitPriorDueRecord() {
+  if(!requirePerm('finance','add')) return;
   const dueDate = document.getElementById('hdDate').value;
   const invoiceNo = document.getElementById('hdInv').value.trim() || 'HIST-' + nextId();
   const name = document.getElementById('hdName').value.trim() || 'Unknown';
@@ -1282,23 +1373,29 @@ function commitPriorDueRecord() {
   if(amount <= 0) { alert('Specify a valid amount.'); return; }
   
   DB.historicalDues.push({ id: nextId(), dueDate, invoiceNo, name, phone, address, description, amount, status: 'Unpaid' });
+  logActivity('Added Historical Due', name+' - '+money(amount));
   saveDB();
   page_payments();
 }
 
 function settlePriorDueRecord(id) {
+  if(!requirePerm('finance','edit')) return;
   const rec = DB.historicalDues.find(x=>x.id===id);
   if(!rec) return;
   if(confirm(`Settle manual recovery of ${money(rec.amount)}?`)) {
     rec.status = 'Paid';
     DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:`Settled manual historical debt ref: ${rec.invoiceNo}`, amount:rec.amount, direction:'in'});
+    logActivity('Settled Historical Due', rec.name+' - '+money(rec.amount));
     saveDB();
     page_payments();
   }
 }
 function deletePriorDueRecord(id){
+  if(!requirePerm('finance','delete')) return;
+  const rec = DB.historicalDues.find(x=>x.id===id);
   if(confirm("Delete this due record?")){
     DB.historicalDues = DB.historicalDues.filter(x=>x.id!==id);
+    logActivity('Deleted Historical Due', rec ? (rec.name+' - '+money(rec.amount)) : ('#'+id));
     saveDB();
     page_payments();
   }
@@ -1333,7 +1430,11 @@ function openAccountEntry(){
   <button class="btn copper" onclick="saveAccountEntry()">Save</button>`);
 }
 function saveAccountEntry(){
-  DB.accounts.push({id:nextId(), method:document.getElementById('accMethod').value, date:todayISO(), desc:document.getElementById('accDesc').value, amount:Number(document.getElementById('accAmt').value||0), direction:document.getElementById('accDir').value}); closeModal(); goto('accounts');
+  if(!requirePerm('finance','add')) return;
+  const entry = {id:nextId(), method:document.getElementById('accMethod').value, date:todayISO(), desc:document.getElementById('accDesc').value, amount:Number(document.getElementById('accAmt').value||0), direction:document.getElementById('accDir').value};
+  DB.accounts.push(entry);
+  logActivity('Added Account Entry', entry.desc+' - '+money(entry.amount));
+  closeModal(); goto('accounts');
 }
 
 /* ============================================================
@@ -1387,7 +1488,11 @@ function openPremiumRegister(){
   openModal(`<div class="closeRow"><h3>Register Premium Care</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Invoice Number</label><input id="pcInv"></div><div class="field"><label>Customer Name</label><input id="pcCust"></div><div class="field"><label>Benefit Notes (extra warranty / discount)</label><textarea id="pcNotes"></textarea></div><button class="btn copper" onclick="savePremium()">Save</button>`);
 }
 function savePremium(){
-  DB.premiumCare.push({id:nextId(), invoiceNo:document.getElementById('pcInv').value, customer:document.getElementById('pcCust').value, notes:document.getElementById('pcNotes').value}); closeModal(); goto('premium');
+  if(!requirePerm('ops','add')) return;
+  const rec = {id:nextId(), invoiceNo:document.getElementById('pcInv').value, customer:document.getElementById('pcCust').value, notes:document.getElementById('pcNotes').value};
+  DB.premiumCare.push(rec);
+  logActivity('Registered Premium Care', rec.customer+' - '+rec.invoiceNo);
+  closeModal(); goto('premium');
 }
 
 /* ============================================================
@@ -1500,6 +1605,7 @@ function openDealerForm(id, returnToLedger){
   `);
 }
 function saveDealer(){
+  if(!requirePerm('staff', dealerFormContext.id?'edit':'add')) return;
   const name = document.getElementById('dName').value.trim();
   const phone = document.getElementById('dPhone').value.trim();
   const address = document.getElementById('dAddress').value.trim();
@@ -1509,15 +1615,19 @@ function saveDealer(){
     const d = DB.dealers.find(x=>x.id===id);
     d.name = name; d.phone = phone; d.address = address;
     if(pendingDealerPic) d.picture = pendingDealerPic;
+    logActivity('Edited Dealer', name);
   } else {
     DB.dealers.push({ id: nextId(), name, phone, address, picture: pendingDealerPic||'', transactions: [] });
+    logActivity('Added Dealer', name);
   }
   saveDB();
   closeModal();
   if(id && returnToLedger) viewDealerLedger(id); else goto('dealers');
 }
 function deleteDealer(id){
-  if(confirm('Delete this dealer? This will remove their entire ledger history.')) { DB.dealers=DB.dealers.filter(x=>x.id!==id); saveDB(); goto('dealers'); }
+  if(!requirePerm('staff','delete')) return;
+  const d = DB.dealers.find(x=>x.id===id);
+  if(confirm('Delete this dealer? This will remove their entire ledger history.')) { DB.dealers=DB.dealers.filter(x=>x.id!==id); logActivity('Deleted Dealer', d?d.name:('#'+id)); saveDB(); goto('dealers'); }
 }
 
 function dealerOrderCartTotal(){ return dealerOrderCart.reduce((s,c)=>s+c.qty*c.price,0); }
@@ -1560,6 +1670,7 @@ function finalizeDealerOrder(dealerId){
 }
 
 function addDealerPayment(dealerId){
+  if(!requirePerm('staff','add')) return;
   const d = DB.dealers.find(x=>x.id===dealerId);
   const date = document.getElementById('dpayDate').value || todayISO();
   const amount = Number(document.getElementById('dpayAmt').value||0);
@@ -1569,6 +1680,7 @@ function addDealerPayment(dealerId){
   const txnId = nextId();
   d.transactions.push({ id: txnId, type:'payment', date, method, amount, discount });
   if(amount>0){ DB.accounts.push({ id: nextId(), method, date, desc: `Dealer payment received — ${d.name}`, amount, direction:'in', dealerTxnRef: txnId }); }
+  logActivity('Recorded Dealer Payment', d.name+' - '+money(amount));
   saveDB();
   viewDealerLedger(dealerId);
 }
@@ -1591,6 +1703,7 @@ function openDealerOrderTxnForm(dealerId, txnId){
 }
 function saveDealerOrderTxn(){
   const { dealerId, txnId } = dealerEditContext;
+  if(!requirePerm('staff', txnId?'edit':'add')) return;
   const d = DB.dealers.find(x=>x.id===dealerId);
   const date = document.getElementById('edtDate').value || todayISO();
   const desc = document.getElementById('edtDesc').value.trim();
@@ -1604,9 +1717,11 @@ function saveDealerOrderTxn(){
       if(p){ p.qty += t.qty; p.qty -= qty; }
     }
     t.date = date; t.desc = desc; t.price = price; t.qty = qty; t.amount = price*qty;
+    logActivity('Edited Dealer Order', d.name+' - '+desc);
   } else {
     const id = nextId();
     d.transactions.push({ id, type:'order', invoiceNo:'PREV-'+id, date, productId:null, desc, price, qty, amount:price*qty, manual:true });
+    logActivity('Added Dealer Order', d.name+' - '+desc);
   }
   saveDB();
   closeModal();
@@ -1631,6 +1746,7 @@ function editDealerPaymentTxn(dealerId, txnId){
   `);
 }
 function saveDealerPaymentEdit(){
+  if(!requirePerm('staff','edit')) return;
   const { dealerId, txnId } = dealerEditContext;
   const d = DB.dealers.find(x=>x.id===dealerId);
   const t = d.transactions.find(x=>x.id===txnId);
@@ -1647,12 +1763,14 @@ function saveDealerPaymentEdit(){
     DB.accounts = DB.accounts.filter(a=>a.dealerTxnRef!==txnId);
   }
   t.date = date; t.amount = amount; t.method = method; t.discount = discount;
+  logActivity('Edited Dealer Payment', d.name+' - '+money(amount));
   saveDB();
   closeModal();
   viewDealerLedger(dealerId);
 }
 
 function deleteDealerTransaction(dealerId, txnId){
+  if(!requirePerm('staff','delete')) return;
   if(!confirm('Delete this ledger entry? Stock and account records linked to it will be reversed.')) return;
   const d = DB.dealers.find(x=>x.id===dealerId);
   const t = d.transactions.find(x=>x.id===txnId);
@@ -1666,6 +1784,7 @@ function deleteDealerTransaction(dealerId, txnId){
     }
   }
   d.transactions = d.transactions.filter(x=>x.id!==txnId);
+  logActivity('Deleted Dealer Transaction', d ? (d.name+' - txn #'+txnId) : ('#'+txnId));
   saveDB();
   viewDealerLedger(dealerId);
 }
@@ -1896,18 +2015,22 @@ function openPayrollEditModal(id) {
 }
 
 function commitPayrollVariables(id) {
+  if(!requirePerm('staff','edit')) return;
   const s = DB.staff.find(x=>x.id===id);
   s.advance = Number(document.getElementById('epAdvance').value || 0);
   s.salaryIncome = Number(document.getElementById('epIncome').value || 0);
   s.salaryDeduction = Number(document.getElementById('epDeduction').value || 0);
   s.bonus = Number(document.getElementById('epBonus').value || 0);
   s.tiffinAllowance = Number(document.getElementById('epTiffin').value || 0);
+  logActivity('Updated Payroll', s.name);
   saveDB(); closeModal(); page_staff();
 }
 
 function markStaffPresenceToggle(id, status) {
+  if(!requirePerm('staff','edit')) return;
   const s = DB.staff.find(x=>x.id===id);
   s.attendance.push({ date: todayISO(), status: status });
+  logActivity('Marked Attendance', s.name+' - '+status);
   alert(`Marked ${s.name} as ${status} for today (${todayISO()}).`);
   saveDB(); page_staff();
 }
@@ -1916,7 +2039,11 @@ function openStaffForm(){
   openModal(`<div class="closeRow"><h3>Add Staff</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Name</label><input id="sName"></div><div class="field"><label>Role</label><input id="sRole"></div><div class="field"><label>Monthly Salary</label><input id="sSalary" type="number"></div><button class="btn copper" onclick="saveStaff()">Save</button>`);
 }
 function saveStaff(){
-  DB.staff.push({id:nextId(), name:document.getElementById('sName').value, role:document.getElementById('sRole').value, salary:Number(document.getElementById('sSalary').value||0), advance:0, salaryIncome: Number(document.getElementById('sSalary').value||0), salaryDeduction:0, bonus:0, tiffinAllowance:0, attendance:[]}); closeModal(); goto('staff');
+  if(!requirePerm('staff','add')) return;
+  const name = document.getElementById('sName').value;
+  DB.staff.push({id:nextId(), name, role:document.getElementById('sRole').value, salary:Number(document.getElementById('sSalary').value||0), advance:0, salaryIncome: Number(document.getElementById('sSalary').value||0), salaryDeduction:0, bonus:0, tiffinAllowance:0, attendance:[]});
+  logActivity('Enrolled Staff', name);
+  closeModal(); goto('staff');
 }
 
 /* ============================================================
@@ -1931,7 +2058,11 @@ function openExpenseForm(){
   openModal(`<div class="closeRow"><h3>Add Expense</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Description</label><input id="eDesc"></div><div class="field"><label>Amount</label><input id="eAmt" type="number"></div><button class="btn copper" onclick="saveExpense()">Save</button>`);
 }
 function saveExpense(){
-  const amt = Number(document.getElementById('eAmt').value||0); DB.expenses.push({id:nextId(), date:todayISO(), desc:document.getElementById('eDesc').value, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Expense: '+document.getElementById('eDesc').value, amount:amt, direction:'out'}); closeModal(); goto('expenses');
+  if(!requirePerm('finance','add')) return;
+  const desc = document.getElementById('eDesc').value;
+  const amt = Number(document.getElementById('eAmt').value||0); DB.expenses.push({id:nextId(), date:todayISO(), desc, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Expense: '+desc, amount:amt, direction:'out'});
+  logActivity('Added Expense', desc+' - '+money(amt));
+  closeModal(); goto('expenses');
 }
 
 /* ============================================================
@@ -1946,7 +2077,11 @@ function openExtraForm(){
   openModal(`<div class="closeRow"><h3>Add Extra Income</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Item</label><input id="xItem" placeholder="e.g. Scrap Copper, Waste Iron"></div><div class="field"><label>Quantity</label><input id="xQty"></div><div class="field"><label>Amount Received</label><input id="xAmt" type="number"></div><button class="btn copper" onclick="saveExtra()">Save</button>`);
 }
 function saveExtra(){
-  const amt = Number(document.getElementById('xAmt').value||0); DB.extraIncome.push({id:nextId(), date:todayISO(), item:document.getElementById('xItem').value, qty:document.getElementById('xQty').value, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Extra income: '+document.getElementById('xItem').value, amount:amt, direction:'in'}); closeModal(); goto('extraincome');
+  if(!requirePerm('finance','add')) return;
+  const item = document.getElementById('xItem').value;
+  const amt = Number(document.getElementById('xAmt').value||0); DB.extraIncome.push({id:nextId(), date:todayISO(), item, qty:document.getElementById('xQty').value, amount:amt}); DB.accounts.push({id:nextId(), method:'Cash', date:todayISO(), desc:'Extra income: '+item, amount:amt, direction:'in'});
+  logActivity('Added Extra Income', item+' - '+money(amt));
+  closeModal(); goto('extraincome');
 }
 
 /* ============================================================
@@ -2090,20 +2225,25 @@ function renderTempImportGrid() {
 }
 
 function saveImport(){
+  if(!requirePerm('ops','add')) return;
+  const supplier = document.getElementById('imSupplier').value;
   DB.imports.push({
     id:nextId(), 
     landingDate: document.getElementById('imDate').value, 
     billOfLading: document.getElementById('imBL').value, 
-    supplier: document.getElementById('imSupplier').value, 
+    supplier, 
     note: document.getElementById('imNote').value,
     items: [...tempImportItems]
   }); 
+  logActivity('Added Import Record', supplier);
   closeModal(); 
   goto('imports');
 }
 
 function deleteImport(id){
-  if(confirm('Delete this import record completely?')) { DB.imports = DB.imports.filter(x=>x.id!==id); goto('imports'); }
+  if(!requirePerm('ops','delete')) return;
+  const im = DB.imports.find(x=>x.id===id);
+  if(confirm('Delete this import record completely?')) { DB.imports = DB.imports.filter(x=>x.id!==id); logActivity('Deleted Import Record', im?im.supplier:('#'+id)); goto('imports'); }
 }
 
 function viewImportDetails(id) {
@@ -2293,7 +2433,7 @@ function page_notes(){
   ${rows || '<div class="emptyState">No notes yet.</div>'}`;
 }
 function addNote(){
-  const t = document.getElementById('noteText').value.trim(); if(!t) return; DB.notes.push({id:nextId(), date: new Date().toLocaleString(), text:t}); goto('notes');
+  const t = document.getElementById('noteText').value.trim(); if(!t) return; DB.notes.push({id:nextId(), date: new Date().toLocaleString(), text:t}); logActivity('Added Note', t.slice(0,60)); goto('notes');
 }
 
 /* ============================================================
@@ -2327,28 +2467,142 @@ function uploadImg(input, field){
   const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = e=>{ DB.settings[field] = e.target.result; alert((field==='logo'?'Logo':'Signature')+' uploaded.'); saveDB(); }; reader.readAsDataURL(file);
 }
 function saveSmsTemplates(){
-  DB.settings.smsDueTemplate = document.getElementById('smsDue').value; DB.settings.smsInvoiceTemplate = document.getElementById('smsInv').value; alert('Templates saved.'); saveDB();
+  DB.settings.smsDueTemplate = document.getElementById('smsDue').value; DB.settings.smsInvoiceTemplate = document.getElementById('smsInv').value; logActivity('Updated SMS Templates',''); alert('Templates saved.'); saveDB();
 }
 function saveTemplateSettings(){
-  DB.settings.companyName = document.getElementById('tplName').value; DB.settings.proprietor = document.getElementById('tplProp').value; DB.settings.phone = document.getElementById('tplPhone').value; DB.settings.address = document.getElementById('tplAddress').value; DB.settings.greeting = document.getElementById('tplGreeting').value; alert('Invoice template updated.'); saveDB();
+  DB.settings.companyName = document.getElementById('tplName').value; DB.settings.proprietor = document.getElementById('tplProp').value; DB.settings.phone = document.getElementById('tplPhone').value; DB.settings.address = document.getElementById('tplAddress').value; DB.settings.greeting = document.getElementById('tplGreeting').value; logActivity('Updated Invoice Template',''); alert('Invoice template updated.'); saveDB();
 }
 
 /* ============================================================
-   ADMIN MANAGEMENT 
+   ADMIN MANAGEMENT — Roles, Permissions & Activity Log
    ============================================================ */
+let adminsTab = 'list';
 function page_admins(){
-  let rows = DB.admins.map(a=>`<tr><td>${a.username}</td><td>${a.role}</td><td>${a.isSuper?'⭐ Super Admin':''}</td><td><button class="btn small ghost" onclick="editAdmin(${a.id})">Edit</button> ${(!a.isSuper && session.user.isSuper) ? `<button class="btn small danger" onclick="deleteAdmin(${a.id})">Delete</button>` : ''}</td></tr>`).join('');
+  if(!session.user.isSuper){
+    document.getElementById('pageContent').innerHTML = '<div class="emptyState">🚫 Only the Super Admin can access Admin Management.</div>';
+    return;
+  }
   document.getElementById('pageContent').innerHTML = `
-  <div class="toolbar"><div class="muted">Only the Super Admin can delete other admins.</div><button class="btn copper" onclick="editAdmin(null)">+ Add Admin</button></div><div class="card"><table><thead><tr><th>Username</th><th>Role</th><th>Type</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  <div class="tabs">
+    <div class="tab ${adminsTab==='list'?'active':''}" onclick="switchAdminsTab('list')">Admins &amp; Roles</div>
+    <div class="tab ${adminsTab==='log'?'active':''}" onclick="switchAdminsTab('log')">Activity Log</div>
+  </div>
+  <div id="adminsTabBody"></div>`;
+  renderAdminsTabBody();
+}
+function switchAdminsTab(tab){ adminsTab = tab; renderAdminsTabBody(); }
+function renderAdminsTabBody(){
+  const el = document.getElementById('adminsTabBody');
+  if(!el) return;
+  el.innerHTML = adminsTab==='list' ? adminsListHtml() : activityLogHtml();
+}
+function adminsListHtml(){
+  let rows = DB.admins.map(a=>{
+    const modSummary = a.isSuper ? 'All Modules (Super Admin)' : (Object.keys(MODULES).map(m=>{
+      const p = a.permissions && a.permissions[m];
+      if(!p || !p.view) return null;
+      const flags = ['view', p.add?'add':null, p.edit?'edit':null, p.delete?'delete':null].filter(Boolean).join('/');
+      return `${MODULES[m]}: ${flags}`;
+    }).filter(Boolean).join(' • ') || 'No module access');
+    return `<tr>
+      <td>${a.username}</td>
+      <td>${a.role}</td>
+      <td>${a.isSuper?'⭐ Super Admin':'Admin'}</td>
+      <td style="font-size:12px;color:var(--muted)">${modSummary}</td>
+      <td>
+        <button class="btn small ghost" onclick="editAdmin(${a.id})">Edit</button>
+        ${(!a.isSuper) ? `<button class="btn small danger" onclick="deleteAdmin(${a.id})">Delete</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="toolbar"><div class="muted">Only the Super Admin can add, edit or delete admins and assign module permissions.</div><button class="btn copper" onclick="editAdmin(null)">+ Add Admin</button></div>
+  <div class="card"><table><thead><tr><th>Username</th><th>Role</th><th>Type</th><th>Module Access</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function activityLogHtml(){
+  const logs = (DB.activityLog||[]).slice(0,300);
+  let rows = logs.map(l=>`<tr><td>${l.time}</td><td><b>${l.username}</b>${l.role?` <span class="muted">(${l.role})</span>`:''}</td><td>${l.action}</td><td>${l.details||''}</td></tr>`).join('');
+  return `
+  <div class="toolbar">
+    <input class="search" placeholder="Search activity log..." oninput="filterActivityLog(this.value)">
+    <button class="btn ghost" onclick="clearActivityLog()">Clear Log</button>
+  </div>
+  <div class="card"><table id="activityLogTable"><thead><tr><th>Date &amp; Time</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan=4 class="emptyState">No activity recorded yet.</td></tr>'}</tbody></table></div>`;
+}
+function filterActivityLog(q){
+  q=q.toLowerCase();
+  document.querySelectorAll('#activityLogTable tbody tr').forEach(tr=>{ tr.style.display = tr.textContent.toLowerCase().includes(q)?'':'none'; });
+}
+function clearActivityLog(){
+  if(!session.user.isSuper) return;
+  if(confirm('Clear the entire activity log? This cannot be undone.')){ DB.activityLog = []; saveDB(); renderAdminsTabBody(); }
 }
 function editAdmin(id){
-  const a = id ? DB.admins.find(x=>x.id===id) : {username:'',password:'',role:'Admin'}; openModal(`<div class="closeRow"><h3>${id?'Edit':'Add'} Admin</h3><span class="x" onclick="closeModal()">✕</span></div><div class="field"><label>Username</label><input id="adUser" value="${a.username}"></div><div class="field"><label>Password</label><input id="adPass" type="text" value="${a.password||''}"></div><div class="field"><label>Role Profile</label><select id="adRole"><option ${a.role==='Admin'?'selected':''}>Admin</option><option ${a.role==='Manager'?'selected':''}>Manager</option></select></div><button class="btn copper" onclick="saveAdmin(${id})">Save Admin Profile</button>`);
+  if(!session.user.isSuper) return;
+  const a = id ? DB.admins.find(x=>x.id===id) : {username:'', password:'', role:'Manager', permissions: defaultPermissions()};
+  const perms = a.isSuper ? null : (a.permissions || defaultPermissions());
+  const moduleRows = Object.keys(MODULES).map(m=>{
+    const p = perms ? perms[m] : {view:true,add:true,edit:true,delete:true};
+    return `
+    <tr>
+      <td>${MODULES[m]}</td>
+      <td style="text-align:center"><input type="checkbox" id="perm_${m}_view" ${p.view?'checked':''}></td>
+      <td style="text-align:center"><input type="checkbox" id="perm_${m}_add" ${p.add?'checked':''}></td>
+      <td style="text-align:center"><input type="checkbox" id="perm_${m}_edit" ${p.edit?'checked':''}></td>
+      <td style="text-align:center"><input type="checkbox" id="perm_${m}_delete" ${p.delete?'checked':''}></td>
+    </tr>`;
+  }).join('');
+  openModal(`
+  <div class="closeRow"><h3>${id?'Edit':'Add'} Admin</h3><span class="x" onclick="closeModal()">✕</span></div>
+  <div class="grid cols-2">
+    <div class="field"><label>Username</label><input id="adUser" value="${a.username}"></div>
+    <div class="field"><label>Password</label><input id="adPass" type="text" value="${a.password||''}"></div>
+  </div>
+  <div class="field"><label>Role Title</label><input id="adRole" value="${a.role}" placeholder="e.g. Manager, Cashier, Accountant"></div>
+  ${a.isSuper ? '<p class="muted">The Super Admin automatically has full access to every module and cannot be restricted.</p>' : `
+  <h4 style="margin-top:14px;">Module Permissions</h4>
+  <p class="muted" style="margin-top:-4px;">Tick which actions this admin is allowed to perform in each module.</p>
+  <table><thead><tr><th>Module</th><th style="text-align:center">View</th><th style="text-align:center">Add</th><th style="text-align:center">Edit</th><th style="text-align:center">Delete</th></tr></thead>
+  <tbody>${moduleRows}</tbody></table>
+  `}
+  <button class="btn copper" style="margin-top:14px" onclick="saveAdmin(${id})">Save Admin Profile</button>`, true);
 }
 function saveAdmin(id){
-  const u = document.getElementById('adUser').value.trim(); const p = document.getElementById('adPass').value; const r = document.getElementById('adRole').value; if(!u || !p) return; if(id){ const target = DB.admins.find(x=>x.id===id); target.username=u; target.password=p; target.role=r; }else{ DB.admins.push({id:nextId(), username:u, password:p, role:r, isSuper:false}); }
+  if(!session.user.isSuper) return;
+  const u = document.getElementById('adUser').value.trim();
+  const p = document.getElementById('adPass').value;
+  const r = document.getElementById('adRole').value.trim() || 'Admin';
+  if(!u || !p) return;
+  const target = id ? DB.admins.find(x=>x.id===id) : null;
+  let permissions = null;
+  if(!(target && target.isSuper)){
+    permissions = {};
+    Object.keys(MODULES).forEach(m=>{
+      permissions[m] = {
+        view: document.getElementById(`perm_${m}_view`).checked,
+        add: document.getElementById(`perm_${m}_add`).checked,
+        edit: document.getElementById(`perm_${m}_edit`).checked,
+        delete: document.getElementById(`perm_${m}_delete`).checked
+      };
+    });
+  }
+  if(target){
+    target.username=u; target.password=p; target.role=r;
+    if(!target.isSuper) target.permissions = permissions;
+    logActivity('Edited Admin', u+' ('+r+')');
+  } else {
+    DB.admins.push({id:nextId(), username:u, password:p, role:r, isSuper:false, permissions});
+    logActivity('Added Admin', u+' ('+r+')');
+  }
   closeModal(); goto('admins');
 }
-function deleteAdmin(id){ if(confirm('Delete this user?')){ DB.admins = DB.admins.filter(x=>x.id!==id); goto('admins'); } }
+function deleteAdmin(id){
+  if(!session.user.isSuper) return;
+  const a = DB.admins.find(x=>x.id===id);
+  if(a && a.isSuper){ alert('The Super Admin account cannot be deleted.'); return; }
+  if(confirm('Delete this user?')){ DB.admins = DB.admins.filter(x=>x.id!==id); logActivity('Deleted Admin', a?a.username:('#'+id)); goto('admins'); }
+}
 
 
 /* ============================================================
